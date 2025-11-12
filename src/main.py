@@ -49,6 +49,7 @@ from utils import (
     debug_print, update_play_statistics, get_fps_color
 )
 
+
 class JuliasRunGame:
     """
     Clase principal del juego Julia's Run.
@@ -63,14 +64,19 @@ class JuliasRunGame:
     """
     
     def __init__(self):
-        """Inicializa el juego y todos sus sistemas."""
-        
+        """Inicializa el juego y todos sus sistemas.""" 
+    
         # Inicializar Pygame
         pygame.init()
+    
         
         # Crear la ventana del juego
         self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
         pygame.display.set_caption("Julia's Run - ¡Esquiva y Sobrevive!")
+        
+        # Fondo scroll
+        self.background = pygame.image.load("assets//sprites/background.png").convert()
+        self.background_y = 0
         
         # Control de tiempo (FPS)
         self.clock = pygame.time.Clock()
@@ -215,7 +221,7 @@ class JuliasRunGame:
             if self.player.score // DIFFICULTY_INCREASE_INTERVAL > self.last_difficulty_score // DIFFICULTY_INCREASE_INTERVAL:
                 self.last_difficulty_score = self.player.score
                 debug_print(f"¡Dificultad aumentada! Nivel: {self.current_difficulty:.1f}", 
-                          debug_mode=True)  # Siempre mostrar este mensaje
+                        debug_mode=True)  # Siempre mostrar este mensaje
             
             # Spawn de nuevos obstáculos (con dificultad ajustada)
             adjusted_spawn_rate = max(30, OBSTACLE_SPAWN_RATE - int(self.current_difficulty * 10))
@@ -406,6 +412,9 @@ class JuliasRunGame:
                     self.powerup_effects.activate_vodka_boost(self.player)
                 elif powerup.type == 'tea':
                     self.powerup_effects.activate_tea_shield(self.player)
+                elif powerup.type == 'honey':
+                    self.player.speed *=0.5
+                    self.player.honey_timer = 180
                 
                 # ✅ IMPLEMENTADO: Efectos visuales para power-ups
                 sparkle_particles = ParticleEffect(
@@ -502,7 +511,20 @@ class JuliasRunGame:
         """
         
         # Limpiar pantalla
-        surface.fill(BLACK)
+        # surface.fill(BLACK)
+        
+        # Scroll vertical del fondo
+        self.background_y += 2  # Ajusta la velocidad si quieres
+
+        # Reinicio sauve del scroll
+        if self.background_y >= self.background.get_height():
+            self.background_y -= self.background.get_height()
+
+        # Dibujar el fondo dos veces pa cubrir toda la pantalla
+        for x in range(0, WINDOW_WIDTH, self.background.get_width()):
+            surface.blit(self.background, (x, self.background_y))
+            surface.blit(self.background, (x, self.background_y - self.background.get_height()))
+
         
         # Dibujar todas las entidades
         self.player.draw(surface)

@@ -162,11 +162,12 @@ class Player:
         self.lives = PLAYER_LIVES           # Empieza con vidas completas
         self.score = 0                      # Puntuación inicial
         self.speed = PLAYER_SPEED           # Velocidad de movimiento
+        self.original_speed = self.speed    # Guardar velocidad base para restaurar
         self.has_shield = False             # Sin escudo al inicio
+        self.honey_timer = 0                # Duración del efecto de ralentización
         
         # === CARGA DE SPRITE PARA JULIA ===
-        # Intentar cargar sprite de Julia
-        sprite_path = os.path.join("assets", "sprites", "julia_pixelart.jpg")
+        sprite_path = os.path.join("assets", "sprites", "julia_pixelart.png")
         self.sprite, self.using_fallback = load_sprite_with_fallback(
             sprite_path, 
             PLAYER_COLOR,  # Color fallback si no hay imagen
@@ -183,12 +184,24 @@ class Player:
         self.hit_flash_timer = 0       # Timer para efecto de parpadeo al recibir daño
         self.invulnerability_timer = 0 # Frames de invulnerabilidad después de recibir daño
         
+        # --------------------------
+        # NUEVO: Atributos para la inclinación/rotación visual al moverse
+        # rotation_angle: ángulo actual (grados) aplicado al renderizado (visual only)
+        # target_rotation: ángulo objetivo hacia el que se interpola
+        # LEAN_ANGLE: ángulo máximo de inclinación en grados (ajustable)
+        # ROTATION_SMOOTHING: factor de interpolación (0..1), mayor = más rápido
+        # --------------------------
+        self.rotation_angle = 0.0        # ángulo actual aplicado al dibujo (grados)
+        self.target_rotation = 0.0       # ángulo objetivo hacia el que interpolar
+        self.LEAN_ANGLE = 12.0           # ángulo máximo de inclinación en grados
+        self.ROTATION_SMOOTHING = 0.18   # cuánto suaviza la interpolación (0..1). Más alto = más rápido
+
         # Debug info para desarrollo
         if self.using_fallback:
             print("🎮 Player: Usando rectángulo fallback (imagen no encontrada)")
         else:
             print("🎮 Player: Sprite cargado exitosamente desde", sprite_path)
-    
+
     def move(self, keys_pressed):
         """
         ⚡ MÉTODO MOVE - Cómo se mueve el jugador
@@ -217,34 +230,57 @@ class Player:
             self.hit_flash_timer -= 1
         if self.invulnerability_timer > 0:
             self.invulnerability_timer -= 1
+
+        # 🐝 EFECTO DE MIEL: Ralentizar temporalmente al jugador
+        if self.honey_timer > 0:
+            self.honey_timer -= 1
+            if self.honey_timer == 0:
+                self.speed = self.original_speed  # Restaurar velocidad original
         
         # 🏃 DETECCIÓN DE MOVIMIENTO (para animaciones)
         is_moving = False
         
         # ⬅️ MOVIMIENTO HORIZONTAL
-        # 🔍 Mejora sugerida: Podría extraerse a un método separate_horizontal_movement()
         if keys_pressed[KEY_LEFT] and self.rect.left > 0:
-            self.rect.x -= self.speed              # Mover hacia la izquierda
-            self.facing_direction = -1             # Recordar dirección para sprite
+            self.rect.x -= self.speed
+            self.facing_direction = -1
             is_moving = True
             
         if keys_pressed[KEY_RIGHT] and self.rect.right < WINDOW_WIDTH:
-            self.rect.x += self.speed              # Mover hacia la derecha  
-            self.facing_direction = 1              # Recordar dirección para sprite
+            self.rect.x += self.speed
+            self.facing_direction = 1
             is_moving = True
             
         # ⬆️⬇️ MOVIMIENTO VERTICAL
         if keys_pressed[KEY_UP] and self.rect.top > 0:
-            self.rect.y -= self.speed              # Mover hacia arriba
+            self.rect.y -= self.speed
             is_moving = True
             
         if keys_pressed[KEY_DOWN] and self.rect.bottom < WINDOW_HEIGHT:
-            self.rect.y += self.speed              # Mover hacia abajo
+            self.rect.y += self.speed
             is_moving = True
         
         # ✅ IMPLEMENTADO: Resetear animación si no se mueve
         if not is_moving:
             self.sprite_frame = 0  # Frame estático cuando no se mueve
+
+        # --------------------------
+        # NUEVO: actualizar target_rotation según dirección horizontal actual
+        # - Izquierda -> inclinar hacia la izquierda (positivo)
+        # - Derecha  -> inclinar hacia la derecha (negativo)
+        # - Ninguna  -> volver recto (0)
+        # Esto solo afecta al render (rotación visual), no a colisiones.
+        # --------------------------
+        if keys_pressed[KEY_LEFT] and self.rect.left > 0:
+            self.target_rotation = self.LEAN_ANGLE
+        elif keys_pressed[KEY_RIGHT] and self.rect.right < WINDOW_WIDTH:
+            self.target_rotation = -self.LEAN_ANGLE
+        else:
+            self.target_rotation = 0.0
+
+        # Interpolar suavemente el ángulo actual hacia el objetivo
+        # (puedes ajustar ROTATION_SMOOTHING para que sea más o menos suave)
+        self.rotation_angle += (self.target_rotation - self.rotation_angle) * self.ROTATION_SMOOTHING
     
     def draw(self, screen):
         """
@@ -274,21 +310,40 @@ class Player:
                     # Hacer el color más brillante
                     color = tuple(min(255, c + 50) for c in color)
             
-            # pygame.draw.rect(superficie, color, rectángulo)
-            pygame.draw.rect(screen, color, self.rect)
+            # -------------------------------------------------------------
+            # NUEVO: Crear una superficie temporal con la representación del jugador
+            # para poder rotarla sin modificar self.rect (la colisión queda igual).
+            # -------------------------------------------------------------
+            surf = pygame.Surface((self.rect.width, self.rect.height), pygame.SRCALPHA)
             
-            # ✅ IMPLEMENTADO: Dibujar dirección con un pequeño indicador
-            # Pequeño triángulo para mostrar hacia dónde mira
+            # Dibujar el rectángulo del jugador en la superficie temporal
+            pygame.draw.rect(surf, color, pygame.Rect(0, 0, self.rect.width, self.rect.height))
+            
+            # ✅ IMPLEMENTADO: Dibujar dirección con un pequeño indicador (en la surf)
             if self.facing_direction == 1:  # Derecha
-                points = [(self.rect.right, self.rect.centery),
-                         (self.rect.right - 8, self.rect.centery - 4),
-                         (self.rect.right - 8, self.rect.centery + 4)]
+                points = [(self.rect.width, self.rect.height // 2),
+                         (self.rect.width - 8, self.rect.height // 2 - 4),
+                         (self.rect.width - 8, self.rect.height // 2 + 4)]
             else:  # Izquierda
-                points = [(self.rect.left, self.rect.centery),
-                         (self.rect.left + 8, self.rect.centery - 4),
-                         (self.rect.left + 8, self.rect.centery + 4)]
+                points = [(0, self.rect.height // 2),
+                         (8, self.rect.height // 2 - 4),
+                         (8, self.rect.height // 2 + 4)]
             
-            pygame.draw.polygon(screen, WHITE, points)
+            pygame.draw.polygon(surf, WHITE, points)
+            
+            # -------------------------------------------------------------
+            # NUEVO: Rotar la superficie según rotation_angle (rotación visual)
+            # y mantener el centro en self.rect.center para que la colisión no cambie.
+            # -------------------------------------------------------------
+            rotated = pygame.transform.rotate(surf, self.rotation_angle)
+            rotated_rect = rotated.get_rect(center=self.rect.center)
+            screen.blit(rotated, rotated_rect.topleft)
+            
+            # ✅ IMPLEMENTADO: Borde adicional si es invulnerable (usando rotated_rect ahora)
+            if self.invulnerability_timer > 0:
+                border_rect = pygame.Rect(rotated_rect.x - 2, rotated_rect.y - 2, 
+                                        rotated_rect.width + 4, rotated_rect.height + 4)
+                pygame.draw.rect(screen, YELLOW, border_rect, 2)
         
         else:
             # === RENDERIZADO DE SPRITE REAL ===
@@ -310,15 +365,21 @@ class Player:
                 # Aplicar tinte al sprite
                 sprite_to_draw.blit(tint_surface, (0, 0), special_flags=pygame.BLEND_ALPHA_SDL2)
             
-            # Dibujar el sprite en la posición del rectángulo
-            screen.blit(sprite_to_draw, self.rect)
-        
-        # ✅ IMPLEMENTADO: Borde adicional si es invulnerable
-        if self.invulnerability_timer > 0:
-            # Dibujar borde de invulnerabilidad
-            border_rect = pygame.Rect(self.rect.x - 2, self.rect.y - 2, 
-                                    self.rect.width + 4, self.rect.height + 4)
-            pygame.draw.rect(screen, YELLOW, border_rect, 2)
+            # -------------------------------------------------------------
+            # NUEVO: Aplicar rotación suavizada al sprite real (solo visual)
+            # - Se usa get_rect(center=self.rect.center) para que el sprite rotado
+            #   mantenga el mismo centro visual que el rect original.
+            # - Las colisiones siguen dependiendo de self.rect (sin rotar).
+            # -------------------------------------------------------------
+            rotated_sprite = pygame.transform.rotate(sprite_to_draw, self.rotation_angle)
+            rotated_rect = rotated_sprite.get_rect(center=self.rect.center)
+            screen.blit(rotated_sprite, rotated_rect.topleft)
+            
+            # ✅ IMPLEMENTADO: Borde adicional si es invulnerable (ahora usando rotated_rect)
+            if self.invulnerability_timer > 0:
+                border_rect = pygame.Rect(rotated_rect.x - 2, rotated_rect.y - 2, 
+                                        rotated_rect.width + 4, rotated_rect.height + 4)
+                pygame.draw.rect(screen, YELLOW, border_rect, 2)
     
     def take_damage(self):
         """
@@ -353,6 +414,8 @@ class Player:
         """Vuelve al jugador a su posición inicial."""
         self.rect.x = PLAYER_START_X
         self.rect.y = PLAYER_START_Y
+
+
 
 
 class Obstacle:
@@ -434,7 +497,7 @@ class Obstacle:
         
         # === CARGA DE SPRITE PARA CACHOPO (OBSTÁCULO) ===
         # Intentar cargar sprite del cachopo
-        sprite_path = os.path.join("assets", "sprites", "cachopo_pixelart.jpg")
+        sprite_path = os.path.join("assets", "sprites", "cachopo_pixelart.png")
         self.sprite, self.using_fallback = load_sprite_with_fallback(
             sprite_path, 
             self.color,  # Color fallback específico del tipo
@@ -563,7 +626,7 @@ class Knife:
         
         # === CARGA DE SPRITE PARA CUCHILLO ===
         # Intentar cargar sprite del cuchillo
-        sprite_path = os.path.join("assets", "sprites", "knife__pixelart.jpg")
+        sprite_path = os.path.join("assets", "sprites", "knife__pixelart.png")
         self.sprite, self.using_fallback = load_sprite_with_fallback(
             sprite_path, 
             KNIFE_COLOR,  # Color fallback
@@ -606,8 +669,8 @@ class Knife:
             
             # Añadir una punta para que parezca más un cuchillo
             tip_points = [(self.rect.centerx, self.rect.top - 3),
-                         (self.rect.left + 2, self.rect.top + 3),
-                         (self.rect.right - 2, self.rect.top + 3)]
+                        (self.rect.left + 2, self.rect.top + 3),
+                        (self.rect.right - 2, self.rect.top + 3)]
             pygame.draw.polygon(screen, KNIFE_COLOR, tip_points)
             
         else:
@@ -629,6 +692,8 @@ class Knife:
             else:
                 # Dibujar sprite normal
                 screen.blit(sprite_to_draw, self.rect)
+
+
 
 
 class PowerUp:
@@ -656,17 +721,87 @@ class PowerUp:
         self.speed = POWERUP_SPEED
         
         # Color según el tipo
+        # if powerup_type == 'vodka':
+        #     self.color = VODKA_COLOR
+        #     self.symbol = "V"  # Símbolo para identificar visualmente
+        #     # === CARGA DE SPRITE PARA VODKA ===
+        #     sprite_path = os.path.join("assets", "sprites", "vodka_pixelart.png")
+        # else:  # 'tea'
+        #     self.color = TEA_COLOR
+        #     self.symbol = "T"
+        #     # Para el té, usar el mismo sprite de vodka como placeholder
+        #     # (en un juego real tendrías un sprite específico para cada power-up)
+        #     sprite_path = os.path.join("assets", "sprites", "vodka_pixelart.png")
+        
+        # # Color y sprite según el tipo
+        # if powerup_type == 'vodka':
+        #     self.color = VODKA_COLOR
+        #     self.symbol = "V"
+        #     sprite_path = os.path.join("assets", "sprites", "vodka_pixelart.png")
+
+        # elif powerup_type == 'tea':
+        #     self.color = TEA_COLOR
+        #     self.symbol = "T"
+        #     sprite_path = os.path.join("assets", "sprites", "tea_pixelart.png")
+
+        # elif powerup_type == 'honey':
+        #     self.color = HONEY_COLOR
+        #     self.symbol = "H"
+        #     sprite_path = os.path.join("assets", "sprites", "honey_pixelart.png")
+
+        # else:
+        #     raise ValueError(f"Tipo de power-up desconocido: {powerup_type}")
+        
+        # Tamaño según el tipo
+        if powerup_type == 'tea':
+            self.width = 100
+            self.height = 80
+        else:
+            self.width = POWERUP_WIDTH
+            self.height = POWERUP_HEIGHT
+
+        # Posición aleatoria en X, fija en Y (parte superior)
+        start_x = random.randint(0, WINDOW_WIDTH - self.width)
+        start_y = -self.height
+
+        self.rect = pygame.Rect(start_x, start_y, self.width, self.height)
+        self.type = powerup_type
+        self.speed = POWERUP_SPEED
+
+        # Color y sprite según el tipo
         if powerup_type == 'vodka':
             self.color = VODKA_COLOR
-            self.symbol = "V"  # Símbolo para identificar visualmente
-            # === CARGA DE SPRITE PARA VODKA ===
-            sprite_path = os.path.join("assets", "sprites", "vodka_pixelart.jpg")
-        else:  # 'tea'
-            self.color = TEA_COLOR
+            self.symbol = "V"
+            sprite_path = os.path.join("assets", "sprites", "vodka_pixelart.png")
+            fallback_color = self.color
+
+        elif powerup_type == 'tea':
+            self.color = TEA_COLOR  # Solo para el texto
             self.symbol = "T"
-            # Para el té, usar el mismo sprite de vodka como placeholder
-            # (en un juego real tendrías un sprite específico para cada power-up)
-            sprite_path = os.path.join("assets", "sprites", "vodka_pixelart.jpg")
+            sprite_path = os.path.join("assets", "sprites", "tea_pixelart.png")
+            fallback_color = None  # No aplicar color al sprite
+            
+        elif powerup_type == 'honey':
+            self.color = HONEY_COLOR
+            self.symbol = "H"
+            sprite_path = os.path.join("assets", "sprites", "honey_pixelart.png")
+            fallback_color = self.color
+
+        else:
+            raise ValueError(f"Tipo de power-up desconocido: {powerup_type}")
+
+
+        # Cargar sprite del power-up
+        self.sprite, self.using_fallback = load_sprite_with_fallback(
+            sprite_path,
+            fallback_color,
+            self.width,
+            self.height
+        )
+
+
+        
+
         
         # Cargar sprite del power-up
         self.sprite, self.using_fallback = load_sprite_with_fallback(

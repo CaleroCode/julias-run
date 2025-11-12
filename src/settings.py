@@ -33,8 +33,8 @@ import pygame
 
 # === CONFIGURACIÓN DE VENTANA ===
 # 🔍 Mejora sugerida: Estos valores podrían leerse de un archivo de configuración
-WINDOW_WIDTH = 800      # Ancho de la ventana en píxeles
-WINDOW_HEIGHT = 600     # Alto de la ventana en píxeles  
+WINDOW_WIDTH = 1000      # Ancho de la ventana en píxeles
+WINDOW_HEIGHT = 800     # Alto de la ventana en píxeles  
 FPS = 60               # Cuadros por segundo - ¡Prueba cambiar a 30 o 120!
 
 # === COLORES (formato RGB) ===
@@ -52,8 +52,8 @@ LIGHT_BLUE = (173, 216, 230) # Combinación personalizada
 PURPLE = (128, 0, 128)
 
 # === CONFIGURACIÓN DEL JUGADOR ===
-PLAYER_WIDTH = 40      # Ancho del sprite del jugador
-PLAYER_HEIGHT = 60     # Alto del sprite del jugador
+PLAYER_WIDTH = 120      # Ancho del sprite del jugador
+PLAYER_HEIGHT = 140     # Alto del sprite del jugador
 PLAYER_SPEED = 5       # Velocidad normal de movimiento (píxeles por frame)
 PLAYER_LIVES = 3       # Número de vidas iniciales
 PLAYER_COLOR = BLUE    # Color del rectángulo del jugador (placeholder)
@@ -63,28 +63,29 @@ PLAYER_START_X = WINDOW_WIDTH // 2 - PLAYER_WIDTH // 2
 PLAYER_START_Y = WINDOW_HEIGHT - PLAYER_HEIGHT - 20
 
 # === CONFIGURACIÓN DE CUCHILLOS ===
-KNIFE_WIDTH = 8        # Ancho del cuchillo
-KNIFE_HEIGHT = 20      # Alto del cuchillo
+KNIFE_WIDTH = 100        # Ancho del cuchillo
+KNIFE_HEIGHT = 130      # Alto del cuchillo
 KNIFE_SPEED = 10       # Velocidad del cuchillo (píxeles por frame)
 KNIFE_COLOR = YELLOW   # Color del cuchillo
 KNIFE_COOLDOWN = 30    # Tiempo de cooldown en frames (0.5 segundos a 60 FPS)
 
 # === CONFIGURACIÓN DE OBSTÁCULOS ===
-OBSTACLE_WIDTH = 30    # Ancho del obstáculo
-OBSTACLE_HEIGHT = 30   # Alto del obstáculo
+OBSTACLE_WIDTH = 50    # Ancho del obstáculo
+OBSTACLE_HEIGHT = 50   # Alto del obstáculo
 OBSTACLE_SPEED = 3     # Velocidad de caída (píxeles por frame)
 OBSTACLE_COLOR = RED   # Color del obstáculo
 OBSTACLE_SPAWN_RATE = 60  # Frames entre spawn de obstáculos (1 segundo a 60 FPS)
 
 # === CONFIGURACIÓN DE POWER-UPS ===
-POWERUP_WIDTH = 25     # Ancho del power-up
-POWERUP_HEIGHT = 25    # Alto del power-up
+POWERUP_WIDTH = 150     # Ancho del power-up
+POWERUP_HEIGHT = 120    # Alto del power-up
 POWERUP_SPEED = 2      # Velocidad de caída (más lento que obstáculos)
 POWERUP_SPAWN_RATE = 300  # Frames entre spawn de power-ups (5 segundos a 60 FPS)
 
 # Colores de power-ups
 VODKA_COLOR = PURPLE   # Vodka Boost - color morado
 TEA_COLOR = GREEN      # Té Mágico - color verde
+HONEY_COLOR = (255, 200,0) 
 
 # Duración de efectos (en frames)
 VODKA_DURATION = 180   # 3 segundos a 60 FPS
@@ -121,9 +122,9 @@ STATE_GAME_OVER = "game_over"
 STATE_PAUSED = "paused"  # ✅ IMPLEMENTADO: Estado de pausa
 
 # === CONFIGURACIÓN DE FUENTES ===
-FONT_SIZE_LARGE = 48   # Tamaño de fuente para títulos
-FONT_SIZE_MEDIUM = 24  # Tamaño de fuente para texto normal
-FONT_SIZE_SMALL = 16   # Tamaño de fuente para detalles
+FONT_SIZE_LARGE = 115   # Tamaño de fuente para títulos
+FONT_SIZE_MEDIUM = 45  # Tamaño de fuente para texto normal
+FONT_SIZE_SMALL = 20   # Tamaño de fuente para detalles
 
 # ✅ IMPLEMENTADO: Configuración para barra de cooldown
 COOLDOWN_BAR_WIDTH = 100   # Ancho de la barra de cooldown en píxeles

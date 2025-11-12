@@ -20,7 +20,6 @@ Referencias útiles:
 
 import pygame
 from settings import *
-
 class GameStateManager:
     """
     Esta clase gestiona los diferentes estados del juego.
@@ -111,26 +110,44 @@ class MenuState:
             screen: Superficie de pygame donde dibujar
         """
         
+        # Cargar imagen de fondo (haz esto una sola vez, fuera del bucle principal)
+        background_image = pygame.image.load("assets/sprites/inicio.png").convert()
+
+        # Dibujar imagen de fondo
+        screen.blit(background_image, (0, 0))
+
+        # Título del juego
+        title_text = self.state_manager.font_large.render("Yul's Run", True, BLACK)
+        title_rect = title_text.get_rect(center=(WINDOW_WIDTH//2, 150))
+        screen.blit(title_text, title_rect)
+
+        # Subtítulo
+        subtitle_text = self.state_manager.font_medium.render("¡Aventura Rusa... digo... Épica!", True, PURPLE)
+        subtitle_rect = subtitle_text.get_rect(center=(WINDOW_WIDTH//2, 200))
+        screen.blit(subtitle_text, subtitle_rect)
+
+        
         # Limpiar pantalla con color de fondo
-        screen.fill(LIGHT_BLUE)
+        # screen.fill(LIGHT_BLUE)
         
         # Título del juego
-        title_text = self.state_manager.font_large.render("Julia's Run", True, BLACK)
+        title_text = self.state_manager.font_large.render("Yul's Run", True, BLACK)
         title_rect = title_text.get_rect(center=(WINDOW_WIDTH//2, 150))
         screen.blit(title_text, title_rect)
         
         # Subtítulo
-        subtitle_text = self.state_manager.font_medium.render("🏃‍♀️🔪 Aventura Épica", True, PURPLE)
+        subtitle_text = self.state_manager.font_medium.render("¡Aventura Rusa... digo... Épica!", True, PURPLE)
         subtitle_rect = subtitle_text.get_rect(center=(WINDOW_WIDTH//2, 200))
         screen.blit(subtitle_text, subtitle_rect)
         
         # Instrucciones
         instructions = [
             "Controles:",
-            "Flechas → Mover",
-            "Espacio → Lanzar cuchillo",
-            "Esquiva obstáculos rojos",
-            "Recoge power-ups de colores",
+            "¡Usa las flechas para mover a la rusa!",
+            "La barra espaciadora para lanzar cuchillos",
+            "¡Esquiva los cachopos!",
+            "El vodka te dará velocidad, el té un escudo",
+            "¡Pero cuidado con la miel!",
             "",
             "Presiona ESPACIO para comenzar",
             "ESC para salir"
