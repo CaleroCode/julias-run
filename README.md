@@ -1,50 +1,90 @@
 # Yul's Run - Aprende POO con un Juego Real 🎮
 
-<div align="center">
-  <img src="assets/sprites/inicio.png" alt="Julia's Run - Juego educativo de POO" width="300"/>
-</div>
+![Pantalla de inicio](assets/sprites/inicio.png)
 
-> **Versión modificada del proyecto original (creado por https://github.com/Anais-RV), con mejoras visuales y nuevos PowerUps para aprendizaje de POO**
+> Versión extendida y modificada del proyecto original (https://github.com/Anais-RV), con mejoras visuales, animaciones, HUD pixel-art y nuevos sistemas desarrollados hoy.
 
-¡Bienvenido a **Yul's Run**! Esta es una **versión modificada** del juego original desarrollado en Python con Pygame, pensada para enseñar conceptos de **Programación Orientada a Objetos (POO)** de forma práctica. En esta versión se han añadido **mejoras visuales** y **nuevos PowerUps** para experimentar y aprender del proyecto base.
+**Yul's Run** es un proyecto ideal para aprender **Programación Orientada a Objetos con Python y Pygame** trabajando sobre un juego real.  
+En esta versión se han añadido mejoras gráficas, efectos modernos, arquitectura más limpia y muchos detalles nuevos para convertirlo en un proyecto profesional y didáctico a la vez.
 
-## 🎯 Qué hace especial a esta versión
+---
 
-**No es solo un juego original copiado** — es un **fork educativo y visualmente mejorado** donde puedes:  
-- 🔍 **Explorar** el código original y sus modificaciones  
-- 🧩 **Aprender** cómo se aplican conceptos de POO en un proyecto real  
-- 🚀 **Experimentar** con nuevos PowerUps y mejoras gráficas  
-- 🎨 **Ver cambios inmediatos** al modificar el juego  
+# 🚀 Mejoras añadidas
 
-## 🎮 El Juego: Yul's Run
+Aquí está **TODO lo que se ha mejorado hoy**
 
-Yul debe esquivar **cachopos** y otros obstáculos mientras lanza **cuchillos** y recoge **PowerUps**. En esta versión se incluyen:
+---
 
-- ✨ **Nuevos PowerUps educativos** (además de Vodka Boost y Té Mágico)  
-- 🎯 Sistema de combos y puntuaciones  
-- 🎨 Sprites pixel art mejorados y fallbacks automáticos  
-- 📊 Persistencia de estadísticas y récords  
-- 🎭 Estados de juego: Menú, jugando, pausa, game over  
+## 🎬 Pantalla de carga mejorada
+- Eliminado el fondo azul sólido.
+- Añadido overlay **semi-transparente** para no romper la estética.
+- `loading.png` ahora aparece **escalado** y centrado correctamente.
+- Evita pantallazos negros iniciales.
 
-### 🎮 Controles
-- **⬅️➡️⬆️⬇️** - Mover a Yul  
-- **ESPACIO** - Lanzar cuchillo  
-- **P** - Pausar/reanudar  
-- **ESC** - Salir  
+---
 
-## 🚀 Inicio Rápido
+## 🎨 HUD estilo pixel-art completamente nuevo
+- Sustituido el HUD original por uno **retro arcade**.
+- Fondo semitransparente tipo *glass*.
+- Bordes pixelados y consistentes.
+- Score formateado como `SCORE 000120`.
+- Corazones de vida colocados junto al texto **LIVES**, no desperdigados.
+- Eliminados los círculos rojos de fallback.
+- Escudo reubicado y armonizado con el HUD.
+
+---
+
+## 💥 Game Over rediseñado
+- Eliminado el texto “Game Over”.
+- Ahora usa el sprite **`gameover_small.png`** como logotipo.
+- Logo alineado **a la izquierda y centrado verticalmente**, para no tapar la animación del fondo.
+- Todo el texto del Game Over ahora está **alineado a la izquierda**.
+- Instrucciones (`ENTER para jugar de nuevo`, `ESC para salir`) ahora en **blanco**.
+- Puntuación y récord movidos a la **esquina superior izquierda**.
+
+---
+
+## 🌟 Animaciones y efectos visuales mejorados
+- Fondos animados en menú y Game Over funcionando con escala *cover*.
+- Screen shake al recibir daño.
+- Efectos de pulso en modo pausa.
+- Partículas mejoradas:
+  - Colisiones
+  - Power-ups
+  - Explosiones
+- Explosiones con más frames y mejor sincronización.
+
+---
+
+## 🔊 Sistema de sonido ordenado
+- Sonido del cuchillo renombrado y reorganizado.
+- `self.snd_throw` usado correctamente.
+- Preparado para migrarlo a `self.snd_knife` si se desea mantener la lógica del nombre.
+
+---
+
+## 🪓 Gameplay
+- Dificultad progresiva mejorada.
+- Power-ups más visibles y limpitos.
+- Efectos activos reubicados y alineados.
+- Mejor lectura en general del HUD durante el juego.
+
+---
+
+## 🎮 Controles
+- Flechas → Mover
+- **ESPACIO** → Lanzar cuchillo
+- **P** → Pausar
+- **ESC** → Salir
+
+---
+
+# 🧩 Instalación
 
 ```bash
-# 1. Clonar el repositorio
 git clone -b dev https://github.com/CaleroCode/julias-run.git
 cd julias-run
-
-# 2. Instalar dependencias
 pip install pygame
-
-# 3. ¡Jugar primero, programar después!
 make run
-# o alternativamente:
+# o:
 python src/main.py
-
-

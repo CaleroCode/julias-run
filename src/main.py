@@ -46,7 +46,7 @@ from game_states import GameStateManager, MenuState, PlayingState, GameOverState
 from utils import (
     load_best_score, save_best_score, should_spawn_obstacle, 
     should_spawn_powerup, get_random_powerup_type, get_difficulty_multiplier,
-    debug_print, update_play_statistics, get_fps_color
+    debug_print, update_play_statistics, get_fps_color, format_score
 )
 
 
@@ -69,10 +69,12 @@ class JuliasRunGame:
         # Inicializar Pygame
         pygame.init()
     
-        
         # Crear la ventana del juego
         self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
         pygame.display.set_caption("Julia's Run - ¡Esquiva y Sobrevive!")
+        
+        # Mostrar pantalla de carga
+        self.show_loading_screen()
         
         # Fondo scroll
         self.background = pygame.image.load("assets//sprites/background.png").convert()
@@ -96,9 +98,72 @@ class JuliasRunGame:
         self.debug_mode = False        # Modo debug (activar con F1)
         self.show_fps = False         # Mostrar FPS (activar con F2)
         self.game_start_time = 0      # Para tracking de tiempo de juego
+
+        # === CONFIG HUD PIXELART ===
+        # Colores estilo retro para la barra superior (sin azul chillón)
+        self.hud_bg_color = (10, 10, 10)            # base oscura (la usaremos con alpha)
+        self.hud_border_color = (200, 160, 255)     # lila suave en vez de azul
+        self.hud_text_color = (240, 240, 240)
+
+
+        # Fuentes tipo pixel (si falla, usamos las del state_manager)
+        try:
+            self.font_hud_medium = pygame.font.Font("assets/fonts/pixel.ttf", 18)
+            self.font_hud_small = pygame.font.Font("assets/fonts/pixel.ttf", 12)
+        except Exception as e:
+            print(f"[HUD] No se pudo cargar fuente pixel, usando fuente por defecto: {e}")
+            # Estas ya se han inicializado dentro de GameStateManager
+            self.font_hud_medium = self.state_manager.font_medium
+            self.font_hud_small = self.state_manager.font_small
+
+        # Iconos de corazón y escudo en pixelart (fallback a círculos/texto si no existen)
+        self.heart_icon = None
+        self.shield_icon = None
+        try:
+            heart = pygame.image.load("assets/sprites/ui_heart.png").convert_alpha()
+            shield = pygame.image.load("assets/sprites/ui_shield.png").convert_alpha()
+            self.heart_icon = pygame.transform.scale(heart, (16, 16))
+            self.shield_icon = pygame.transform.scale(shield, (16, 16))
+        except Exception as e:
+            print(f"[HUD] No se pudieron cargar iconos pixelart del HUD: {e}")
+        # ====================================
         
         # Inicializar componentes del juego
         self.reset_game()
+
+    def show_loading_screen(self):
+        """
+        Muestra una pantalla de carga sencilla con fondo azul aciano
+        y el logo loading.png más pequeño en el centro de la pantalla.
+        """
+        cyan_blue = (0, 180, 255)
+        self.screen.fill(cyan_blue)
+
+        try:
+            loading_image = pygame.image.load("assets/sprites/loading.png").convert_alpha()
+
+            # --- ESCALAR LA IMAGEN ---
+            target_width = 150
+            target_height = 150
+            loading_image = pygame.transform.smoothscale(
+                loading_image, (target_width, target_height)
+            )
+            # --------------------------
+
+            loading_rect = loading_image.get_rect(
+                center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2)
+            )
+            self.screen.blit(loading_image, loading_rect)
+
+        except Exception as e:
+            print(f"No se pudo cargar loading.png: {e}")
+            font = pygame.font.SysFont(None, 48)
+            text = font.render("Cargando...", True, (255, 255, 255))
+            text_rect = text.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2))
+            self.screen.blit(text, text_rect)
+
+        # Actualizar la pantalla para que se vea la pantalla de carga
+        pygame.display.flip()
     
     def reset_game(self):
         """
@@ -503,8 +568,6 @@ class JuliasRunGame:
         pygame.display.flip()
         
     
-        
-    
     def draw_game_content(self, surface):
         """
         ✅ IMPLEMENTADO: Dibuja el contenido del juego en la superficie especificada.
@@ -513,13 +576,10 @@ class JuliasRunGame:
         en diferentes contextos (juego normal, pausa con fondo, etc.).
         """
         
-        # Limpiar pantalla
-        # surface.fill(BLACK)
-        
         # Scroll vertical del fondo
         self.background_y += 2  # Ajusta la velocidad si quieres
 
-        # Reinicio sauve del scroll
+        # Reinicio suave del scroll
         if self.background_y >= self.background.get_height():
             self.background_y -= self.background.get_height()
 
@@ -527,9 +587,6 @@ class JuliasRunGame:
         for x in range(0, WINDOW_WIDTH, self.background.get_width()):
             surface.blit(self.background, (x, self.background_y))
             surface.blit(self.background, (x, self.background_y - self.background.get_height()))
-            
-
-
         
         # Dibujar todas las entidades
         self.player.draw(surface)
@@ -559,51 +616,81 @@ class JuliasRunGame:
     def draw_hud(self, surface):
         """
         ✅ IMPLEMENTADO: Dibuja la interfaz de usuario mejorada.
+        Ahora con estilo pixelart: barra superior, score arcade, vidas con corazones
+        y panel de escudo integrado.
         """
-        
-        # Puntuación con formato mejorado
-        from utils import format_score
-        score_text = self.state_manager.font_medium.render(
-            f"Puntuación: {format_score(self.player.score)}", True, WHITE
-        )
-        surface.blit(score_text, (10, 10))
-        
-        # Vidas con indicadores visuales
-        lives_text = self.state_manager.font_medium.render(f"Vidas: {self.player.lives}", True, WHITE)
-        surface.blit(lives_text, (10, 40))
-        
-        # ✅ IMPLEMENTADO: Indicadores visuales de vidas
-        for i in range(self.player.lives):
-            heart_x = 80 + i * 25
-            heart_y = 45
-            pygame.draw.circle(surface, RED, (heart_x, heart_y), 8)
-            pygame.draw.circle(surface, WHITE, (heart_x, heart_y), 8, 1)
-        
-        # Estado del escudo con mejor visualización
+        hud_height = 64
+
+        # --- BARRA SUPERIOR PIXELART ---
+        pygame.draw.rect(surface, self.hud_bg_color, (0, 0, WINDOW_WIDTH, hud_height))
+        pygame.draw.rect(surface, self.hud_border_color, (0, 0, WINDOW_WIDTH, hud_height), 2)
+
+        padding_x = 10
+        padding_y = 8
+
+        # --- SCORE ESTILO ARCADE ---
+        # Ejemplo: "SCORE 000120"
+        score_str = f"SCORE {self.player.score:06d}"
+        score_text = self.font_hud_medium.render(score_str, True, self.hud_text_color)
+        surface.blit(score_text, (padding_x, padding_y))
+
+        # --- VIDAS COMO CORAZONES / CÍRCULOS ---
+        lives_y = padding_y + 26
+        lives_x = padding_x
+
+        if self.heart_icon:
+            # Dibujar iconos de corazón pixelart
+            for i in range(self.player.lives):
+                icon_x = lives_x + i * (self.heart_icon.get_width() + 2)
+                surface.blit(self.heart_icon, (icon_x, lives_y))
+
+            lives_label = self.font_hud_small.render("LIVES", True, self.hud_text_color)
+            surface.blit(
+                lives_label,
+                (
+                    lives_x + self.player.lives * (self.heart_icon.get_width() + 6),
+                    lives_y + 2,
+                ),
+            )
+        else:
+            # Fallback: círculos rojo
+            for i in range(self.player.lives):
+                heart_x = lives_x + 60 + i * 20
+                heart_y = lives_y + 8
+                pygame.draw.circle(surface, RED, (heart_x, heart_y), 7)
+                pygame.draw.circle(surface, WHITE, (heart_x, heart_y), 7, 1)
+            lives_text = self.font_hud_small.render("LIVES", True, self.hud_text_color)
+            surface.blit(lives_text, (lives_x, lives_y))
+
+        # --- PANEL DE ESCUDO A LA DERECHA ---
         if self.player.has_shield:
-            shield_text = self.state_manager.font_small.render("🛡️ ESCUDO ACTIVO", True, TEA_COLOR)
-            shield_rect = shield_text.get_rect()
-            shield_rect.x = 10
-            shield_rect.y = 70
-            
-            # Fondo para el texto del escudo
-            bg_rect = pygame.Rect(shield_rect.x - 2, shield_rect.y - 2,
-                                shield_rect.width + 4, shield_rect.height + 4)
-            pygame.draw.rect(surface, BLACK, bg_rect)
-            pygame.draw.rect(surface, TEA_COLOR, bg_rect, 1)
-            
-            surface.blit(shield_text, shield_rect)
-        
-        # ✅ IMPLEMENTADO: Barra de cooldown visual
+            panel_w = 150
+            panel_h = 32
+            shield_panel_x = WINDOW_WIDTH - panel_w - 10
+            shield_panel_y = padding_y + 4
+
+            panel_rect = pygame.Rect(shield_panel_x, shield_panel_y, panel_w, panel_h)
+            pygame.draw.rect(surface, (30, 60, 90), panel_rect)  # fondo oscuro azulado
+            pygame.draw.rect(surface, self.hud_border_color, panel_rect, 2)
+
+            text_offset_x = 6
+            if self.shield_icon:
+                surface.blit(self.shield_icon, (shield_panel_x + 6, shield_panel_y + 8))
+                text_offset_x = 28
+
+            shield_text = self.font_hud_small.render("SHIELD ACTIVE", True, TEA_COLOR)
+            surface.blit(shield_text, (shield_panel_x + text_offset_x, shield_panel_y + 8))
+
+        # --- BARRA DE COOLDOWN DEL CUCHILLO ---
         self.knife_cooldown.draw_cooldown_bar(surface)
         
-        # ✅ IMPLEMENTADO: Efectos activos
+        # --- EFECTOS ACTIVOS (vodka, té, etc.) ---
         self.powerup_effects.draw_active_effects(surface, self.state_manager.font_small)
         
-        # ✅ IMPLEMENTADO: Sistema de combos
+        # --- SISTEMA DE COMBOS ---
         self.combo_system.draw_combo_display(surface, self.state_manager.font_small)
         
-        # ✅ IMPLEMENTADO: Indicador de dificultad
+        # --- INDICADOR DE DIFICULTAD ---
         if self.current_difficulty > 1.0:
             diff_text = f"Dificultad: {self.current_difficulty:.1f}x"
             diff_surface = self.state_manager.font_small.render(diff_text, True, YELLOW)
@@ -834,6 +921,10 @@ if __name__ == "__main__":
     main()
 
 # === NOTAS EDUCATIVAS AMPLIADAS ===
+"""
+(… resto de notas exactamente como lo tenías …)
+"""
+
 """
 Conceptos importantes del game loop y arquitectura de juegos:
 

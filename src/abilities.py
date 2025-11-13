@@ -168,6 +168,7 @@ class PowerUpEffect:
         player.speed = int(self.original_speed * VODKA_SPEED_MULTIPLIER)
         
         # TODO 4: Añadir efecto sonoro
+        
         # pygame.mixer.Sound(SOUND_POWERUP).play()
         
         print("¡Vodka Boost activado! Velocidad aumentada.")  # Debug
