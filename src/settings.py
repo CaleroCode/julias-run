@@ -150,11 +150,11 @@ POWERUP_PULSE_SPEED = 4           # Velocidad del efecto de pulso en power-ups
 
 # TODO 4: Añadir rutas de assets cuando estén disponibles
 # SPRITE_JULIA = "assets/sprites/julia.png"
-# SPRITE_KNIFE = "assets/sprites/knife.png"
+# SPRITE_git grep -n "Palabra que querais buscar" || true = "assets/sprites/knife.png"
 # SPRITE_POWERUP = "assets/sprites/powerup.png"
-# SOUND_THROW = "assets/sounds/throw.wav"
-# SOUND_HIT = "assets/sounds/hit.wav"
-# SOUND_POWERUP = "assets/sounds/powerup.wav"
+SOUND_THROW = "assets/sounds/throw.wav"
+SOUND_HIT = "assets/sounds/hit.wav"
+SOUND_POWERUP = "assets/sounds/powerup.wav"
 
 # === NOTAS EDUCATIVAS ===
 """

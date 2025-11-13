@@ -413,7 +413,7 @@ class JuliasRunGame:
                 elif powerup.type == 'tea':
                     self.powerup_effects.activate_tea_shield(self.player)
                 elif powerup.type == 'honey':
-                    self.player.speed *=0.5
+                    self.player.speed *=0.2
                     self.player.honey_timer = 180
                 
                 # ✅ IMPLEMENTADO: Efectos visuales para power-ups
@@ -501,6 +501,9 @@ class JuliasRunGame:
         
         # Actualizar la pantalla (hacer visible lo dibujado)
         pygame.display.flip()
+        
+    
+        
     
     def draw_game_content(self, surface):
         """
@@ -524,6 +527,8 @@ class JuliasRunGame:
         for x in range(0, WINDOW_WIDTH, self.background.get_width()):
             surface.blit(self.background, (x, self.background_y))
             surface.blit(self.background, (x, self.background_y - self.background.get_height()))
+            
+
 
         
         # Dibujar todas las entidades

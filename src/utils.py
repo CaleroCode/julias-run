@@ -144,7 +144,8 @@ def get_random_powerup_type():
         str: 'vodka' o 'tea'
     """
     
-    return random.choice(['vodka', 'tea', 'honey'])
+    return random.choice(['vodka', 'tea', 'honey', 'apple'])
+
 
 
 def clamp(value, min_value, max_value):

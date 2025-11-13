@@ -19,6 +19,10 @@ Referencias útiles:
 """
 
 import pygame
+
+pygame.mixer.pre_init(frequency=44100, size=-16, channels=2, buffer=512)
+pygame.init()
+
 from settings import *
 class GameStateManager:
     """
@@ -110,21 +114,21 @@ class MenuState:
             screen: Superficie de pygame donde dibujar
         """
         
-        # Cargar imagen de fondo (haz esto una sola vez, fuera del bucle principal)
+        # Cargar imagen de fondo (una sola vez, fuera del bucle principal)
         background_image = pygame.image.load("assets/sprites/inicio.png").convert()
 
+        # Escalar la imagen para cubrir toda la ventana (tipo 'cover')
+        bg_width, bg_height = background_image.get_size()
+        scale_factor = max(WINDOW_WIDTH / bg_width, WINDOW_HEIGHT / bg_height)
+        new_size = (int(bg_width * scale_factor), int(bg_height * scale_factor))
+        background_image = pygame.transform.scale(background_image, new_size)
+
+        # Calcular posición para centrarla
+        bg_x = (WINDOW_WIDTH - new_size[0]) // 2
+        bg_y = (WINDOW_HEIGHT - new_size[1]) // 2
+
         # Dibujar imagen de fondo
-        screen.blit(background_image, (0, 0))
-
-        # Título del juego
-        title_text = self.state_manager.font_large.render("Yul's Run", True, BLACK)
-        title_rect = title_text.get_rect(center=(WINDOW_WIDTH//2, 150))
-        screen.blit(title_text, title_rect)
-
-        # Subtítulo
-        subtitle_text = self.state_manager.font_medium.render("¡Aventura Rusa... digo... Épica!", True, PURPLE)
-        subtitle_rect = subtitle_text.get_rect(center=(WINDOW_WIDTH//2, 200))
-        screen.blit(subtitle_text, subtitle_rect)
+        screen.blit(background_image, (bg_x, bg_y))
 
         
         # Limpiar pantalla con color de fondo
@@ -141,6 +145,8 @@ class MenuState:
         screen.blit(subtitle_text, subtitle_rect)
         
         # Instrucciones
+                # ====== PANEL GLASS PARA CONTROLES ======
+        # Calculamos el tamaño del panel según el contenido
         instructions = [
             "Controles:",
             "¡Usa las flechas para mover a la rusa!",
@@ -152,13 +158,50 @@ class MenuState:
             "Presiona ESPACIO para comenzar",
             "ESC para salir"
         ]
-        
+
+        MARGIN_X = 50
         start_y = 280
+        line_h = self.state_manager.font_small.get_linesize()
+        padding_x = 16
+        padding_y = 14
+
+        panel_w = int(WINDOW_WIDTH * 0.31)  # ancho del panel (ajustable)
+        panel_h = padding_y * 2 + line_h * len(instructions)
+        panel_rect = pygame.Rect(MARGIN_X - padding_x, start_y - padding_y, panel_w, panel_h)
+
+        # 1) "Falso blur" del fondo bajo el panel (downscale -> upscale)
+        #    *Asegúrate de blitear el background antes de esto*
+        sub = screen.subsurface(panel_rect).copy()
+        small = pygame.transform.smoothscale(sub, (max(1, panel_rect.w // 8), max(1, panel_rect.h // 8)))
+        blurred = pygame.transform.smoothscale(small, (panel_rect.w, panel_rect.h))
+        screen.blit(blurred, panel_rect.topleft)
+
+        # 2) Capa translúcida blanca con esquinas redondeadas
+        glass = pygame.Surface((panel_rect.w, panel_rect.h), pygame.SRCALPHA)
+        pygame.draw.rect(glass, (255, 255, 255, 70), glass.get_rect(), border_radius=18)  # “vidrio” suave
+        # 3) Borde sutil
+        pygame.draw.rect(glass, (255, 255, 255, 120), glass.get_rect(), width=1, border_radius=18)
+        # 4) Highlight superior (brillito)
+        highlight = pygame.Surface((panel_rect.w, panel_rect.h // 3), pygame.SRCALPHA)
+        pygame.draw.rect(highlight, (255, 255, 255, 60), highlight.get_rect(), border_radius=18)
+        glass.blit(highlight, (0, 0))
+        # 5) Sombra ligera (opcional)
+        shadow = pygame.Surface((panel_rect.w + 12, panel_rect.h + 12), pygame.SRCALPHA)
+        pygame.draw.rect(shadow, (0, 0, 0, 80), shadow.get_rect(), border_radius=22)
+        screen.blit(shadow, (panel_rect.x - 6, panel_rect.y - 6))
+        # 6) Blit final del panel glass
+        screen.blit(glass, panel_rect.topleft)
+
+        # 7) Título y líneas alineadas a la izquierda dentro del panel
+        x_text = panel_rect.x + padding_x
+        y_text = panel_rect.y + padding_y
+
         for i, instruction in enumerate(instructions):
-            color = BLACK if instruction != "" else WHITE
-            text = self.state_manager.font_small.render(instruction, True, color)
-            text_rect = text.get_rect(center=(WINDOW_WIDTH//2, start_y + i * 25))
-            screen.blit(text, text_rect)
+            color = BLACK if instruction != "" else (0, 0, 0, 0)  # no dibujar texto en vacío
+            if instruction:  # evita imprimir la línea vacía
+                surf = self.state_manager.font_small.render(instruction, True, color)
+                screen.blit(surf, (x_text, y_text + i * line_h))
+
         
         # TODO 9: Añadir demo visual o animación de fondo
         # self.draw_background_animation(screen)
@@ -180,35 +223,19 @@ class PlayingState:
         self.state_manager = state_manager
     
     def handle_events(self, events, player, knife_cooldown):
-        """
-        Maneja los eventos durante el juego.
-        
-        Args:
-            events: Lista de eventos de pygame
-            player: Instancia del jugador
-            knife_cooldown: Timer de cooldown para cuchillos
-            
-        Returns:
-            list: Lista de nuevos cuchillos creados (si se lanzó alguno)
-        """
-        
         new_knives = []
         
         for event in events:
             if event.type == pygame.KEYDOWN:
                 if event.key == KEY_SPACE:
-                    # Lanzar cuchillo si no hay cooldown
                     if knife_cooldown.is_ready():
                         from entities import Knife  # Import local para evitar circular
                         new_knife = Knife(player.rect)
                         new_knives.append(new_knife)
                         knife_cooldown.start_cooldown()
-                        
-                        # TODO 4: Añadir sonido de lanzamiento
                         # pygame.mixer.Sound(SOUND_THROW).play()
                 
                 elif event.key == KEY_P:
-                    # ✅ IMPLEMENTADO: Implementar pausa
                     self.state_manager.change_state(STATE_PAUSED)
                     print("Juego pausado")  # Debug
                 
@@ -220,142 +247,104 @@ class PlayingState:
     def update(self, player, obstacles, knives, powerups, effects, knife_cooldown):
         """
         Actualiza toda la lógica del juego.
-        
-        Args:
-            player: Instancia del jugador
-            obstacles: Lista de obstáculos
-            knives: Lista de cuchillos
-            powerups: Lista de power-ups
-            effects: Sistema de efectos de power-ups
-            knife_cooldown: Timer de cooldown
-            
-        Returns:
-            bool: True si el jugador sigue vivo, False si Game Over
         """
-        
-        # Actualizar timers
+        # Timers
         knife_cooldown.update()
         effects.update(player)
         
-        # Mover jugador según teclas presionadas
+        # Mover jugador
         keys = pygame.key.get_pressed()
         player.move(keys)
         
-        # Actualizar obstáculos
-        for obstacle in obstacles[:]:  # [:] crea una copia para iterar seguro
+        # Obstáculos
+        for obstacle in obstacles[:]:
             if not obstacle.update():
-                # Obstáculo salió de pantalla - dar puntos por esquivar
                 obstacles.remove(obstacle)
                 player.score += POINTS_PER_OBSTACLE_AVOIDED
         
-        # Actualizar cuchillos
+        # Cuchillos
         for knife in knives[:]:
             if not knife.update():
                 knives.remove(knife)
         
-        # Actualizar power-ups
+        # Power-ups
         for powerup in powerups[:]:
             if not powerup.update():
                 powerups.remove(powerup)
         
-        # Detectar colisiones jugador-obstáculos
+        # Colisiones jugador-obstáculos
         for obstacle in obstacles[:]:
             if player.rect.colliderect(obstacle.rect):
-                obstacles.remove(obstacle)
-                if not player.take_damage():
-                    # Game Over
-                    return False
-                
-                # TODO 4: Añadir sonido de daño
-                # pygame.mixer.Sound(SOUND_HIT).play()
-        
-        # Detectar colisiones cuchillo-obstáculos
+                if player.take_damage():
+                    obstacles.remove(obstacle)
+                else:
+                    return False  # Game Over
+                        
+        # Colisiones cuchillo-obstáculos
         for knife in knives[:]:
             for obstacle in obstacles[:]:
                 if knife.rect.colliderect(obstacle.rect):
-                    # Destruir ambos y dar puntos
                     knives.remove(knife)
                     obstacles.remove(obstacle)
                     player.score += POINTS_PER_OBSTACLE_DESTROYED
-                    
-                    # TODO 7: Crear efecto de explosión
-                    # explosion = Explosion(obstacle.rect.center)
                     break
         
-        # Detectar colisiones jugador-power-ups
+        # Colisiones jugador-powerups (incluye apple aquí)
         for powerup in powerups[:]:
             if player.rect.colliderect(powerup.rect):
                 powerups.remove(powerup)
                 player.score += POINTS_PER_POWERUP
                 
-                # Activar efecto según el tipo
                 if powerup.type == 'vodka':
                     effects.activate_vodka_boost(player)
                 elif powerup.type == 'tea':
                     effects.activate_tea_shield(player)
+                elif powerup.type == 'honey':
+                    # Si tienes efecto de miel, actívalo aquí; si no, aplica tu lógica actual
+                    # effects.activate_honey_slow(player)
+                    player.honey_timer = max(player.honey_timer, 240)  # ej. 4s si 60 FPS
+                elif powerup.type == 'apple':
+                    # Manzana = +1 vida
+                    player.lives += 1
+                    print(f"🍎 Manzana recogida! Vidas: {player.lives}")
+                    # pygame.mixer.Sound(SOUND_POWERUP).play()
         
         return True  # Jugador sigue vivo
     
     def draw(self, screen, player, obstacles, knives, powerups, effects, knife_cooldown):
         """
         Dibuja todo el estado del juego.
-        
-        Args:
-            screen: Superficie donde dibujar
-            player: Instancia del jugador
-            obstacles: Lista de obstáculos
-            knives: Lista de cuchillos
-            powerups: Lista de power-ups
-            effects: Sistema de efectos
-            knife_cooldown: Timer de cooldown
         """
-        
-        # Limpiar pantalla
+        # Limpiar
         screen.fill(BLACK)
         
-        # Dibujar todas las entidades
+        # Entidades
         player.draw(screen)
-        
         for obstacle in obstacles:
             obstacle.draw(screen)
-        
         for knife in knives:
             knife.draw(screen)
-        
         for powerup in powerups:
             powerup.draw(screen)
         
-        # Dibujar HUD (Heads-Up Display)
+        # HUD
         self.draw_hud(screen, player, effects, knife_cooldown)
     
     def draw_hud(self, screen, player, effects, knife_cooldown):
         """
-        Dibuja la interfaz de usuario (puntuación, vidas, etc.).
-        
-        Args:
-            screen: Superficie donde dibujar
-            player: Instancia del jugador
-            effects: Sistema de efectos
-            knife_cooldown: Timer de cooldown
+        HUD (puntuación, vidas, etc.)
         """
-        
-        # Puntuación
         score_text = self.state_manager.font_medium.render(f"Puntuación: {player.score}", True, WHITE)
         screen.blit(score_text, (10, 10))
         
-        # Vidas
         lives_text = self.state_manager.font_medium.render(f"Vidas: {player.lives}", True, WHITE)
         screen.blit(lives_text, (10, 40))
         
-        # Estado del escudo
         if player.has_shield:
             shield_text = self.state_manager.font_small.render("🛡️ ESCUDO ACTIVO", True, TEA_COLOR)
             screen.blit(shield_text, (10, 70))
         
-        # ✅ IMPLEMENTADO: Barra de cooldown visual
         knife_cooldown.draw_cooldown_bar(screen)
-        
-        # ✅ IMPLEMENTADO: Efectos activos
         effects.draw_active_effects(screen, self.state_manager.font_small)
 
 
@@ -373,34 +362,26 @@ class GameOverState:
         self.final_score = 0
         self.best_score = 0
         self.is_new_record = False
+
+        # ================= Imagen de fondo =================
+        self.game_over_bg = pygame.image.load("assets/sprites/gameover.png").convert_alpha()
+        self.game_over_bg = pygame.transform.scale(self.game_over_bg, (WINDOW_WIDTH, WINDOW_HEIGHT))
+        # ===================================================
     
     def set_scores(self, final_score, best_score):
-        """
-        Establece las puntuaciones para mostrar.
-        
-        Args:
-            final_score: Puntuación de la partida actual
-            best_score: Mejor puntuación histórica
-        """
+        """Establece las puntuaciones para mostrar."""
         self.final_score = final_score
         self.best_score = best_score
         self.is_new_record = final_score > best_score
     
     def handle_events(self, events):
-        """
-        Maneja los eventos en la pantalla de Game Over.
-        
-        Args:
-            events: Lista de eventos de pygame
-        """
-        
+        """Maneja los eventos en la pantalla de Game Over."""
         for event in events:
             if event.type == pygame.KEYDOWN:
                 if event.key == KEY_ENTER:
                     self.state_manager.change_state(STATE_PLAYING)
                 elif event.key == KEY_ESCAPE:
                     return False  # Salir del juego
-        
         return True
     
     def update(self):
@@ -408,23 +389,32 @@ class GameOverState:
         pass
     
     def draw(self, screen):
-        """
-        Dibuja la pantalla de Game Over.
+        """Dibuja la pantalla de Game Over."""
+        # ================= Dibujar fondo =================
+        screen.blit(self.game_over_bg, (0, 0))
+        # =================================================
+
+        # Título de Game Over
+        game_over_text = self.state_manager.font_large.render("¡GAME OVER Y TAL!", True, RED)
+        title_rect = game_over_text.get_rect(center=(WINDOW_WIDTH // 2, 150))
+        screen.blit(game_over_text, title_rect)
+
+        # (Opcional) overlay semi-transparente para efecto dramático
+        overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 100))  # Negro con alpha 100
+        screen.blit(overlay, (0, 0))
+
         
-        Args:
-            screen: Superficie donde dibujar
-        """
-        
-        # Fondo semi-transparente
-        screen.fill(BLACK)
-        
-        # Título
-        game_over_text = self.state_manager.font_large.render("GAME OVER", True, RED)
-        title_rect = game_over_text.get_rect(center=(WINDOW_WIDTH//2, 150))
+        # Dibujar fondo con la imagen
+        screen.blit(self.game_over_bg, (0, 0))
+
+        # Título de Game Over
+        game_over_text = self.state_manager.font_large.render("¡GAME OVER Y TAL!", True, RED)
+        title_rect = game_over_text.get_rect(center=(WINDOW_WIDTH // 2, 150))
         screen.blit(game_over_text, title_rect)
         
         # Puntuación final
-        score_text = self.state_manager.font_medium.render(f"Tu puntuación: {self.final_score}", True, WHITE)
+        score_text = self.state_manager.font_medium.render(f"Cachopo-Puntuación: {self.final_score}", True, WHITE)
         score_rect = score_text.get_rect(center=(WINDOW_WIDTH//2, 220))
         screen.blit(score_text, score_rect)
         
@@ -438,13 +428,16 @@ class GameOverState:
         screen.blit(record_text, record_rect)
         
         # Instrucciones
-        restart_text = self.state_manager.font_small.render("Presiona ENTER para jugar de nuevo", True, WHITE)
-        restart_rect = restart_text.get_rect(center=(WINDOW_WIDTH//2, 350))
+        restart_text = self.state_manager.font_small.render(
+            "Presiona ENTER para jugar de nuevo", True, BLACK
+        )
+        restart_rect = restart_text.get_rect(topleft=(50, 350))
         screen.blit(restart_text, restart_rect)
-        
-        exit_text = self.state_manager.font_small.render("ESC para salir", True, WHITE)
-        exit_rect = exit_text.get_rect(center=(WINDOW_WIDTH//2, 380))
+
+        exit_text = self.state_manager.font_small.render("ESC para salir", True, BLACK)
+        exit_rect = exit_text.get_rect(topleft=(50, 380))
         screen.blit(exit_text, exit_rect)
+
 
 
 # ✅ IMPLEMENTADO: Estado de pausa
