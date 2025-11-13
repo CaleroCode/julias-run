@@ -48,6 +48,11 @@ class GameStateManager:
         self.font_large = pygame.font.Font(None, FONT_SIZE_LARGE)
         self.font_medium = pygame.font.Font(None, FONT_SIZE_MEDIUM)
         self.font_small = pygame.font.Font(None, FONT_SIZE_SMALL)
+        
+         # 🎵 Música de fondo
+        pygame.mixer.music.load(MUSIC_BACKGROUND)
+        pygame.mixer.music.set_volume(0.2)  # 0.0 - 1.0
+        pygame.mixer.music.play(-1)         # -1 = bucle      
     
     def change_state(self, new_state):
         """
@@ -69,6 +74,9 @@ class GameStateManager:
         return self.current_state
 
 
+import os
+import pygame
+
 class MenuState:
     """
     Estado del menú principal.
@@ -85,6 +93,43 @@ class MenuState:
             state_manager: Referencia al gestor de estados
         """
         self.state_manager = state_manager
+
+        # ====== FONDO ANIMADO ======
+        self.bg_frames = []
+        frames_path = "assets/sprites/animated"
+
+        # Cargar todos los PNG de la carpeta como frames
+        if os.path.isdir(frames_path):
+            for filename in sorted(os.listdir(frames_path)):
+                if filename.lower().endswith(".png"):
+                    full_path = os.path.join(frames_path, filename)
+                    img = pygame.image.load(full_path).convert()
+
+                    # Escalar la imagen para cubrir toda la ventana (tipo 'cover')
+                    bg_width, bg_height = img.get_size()
+                    scale_factor = max(WINDOW_WIDTH / bg_width, WINDOW_HEIGHT / bg_height)
+                    new_size = (int(bg_width * scale_factor), int(bg_height * scale_factor))
+                    img = pygame.transform.scale(img, new_size)
+
+                    self.bg_frames.append(img)
+
+        # Índice y velocidad de animación
+        self.bg_frame_index = 0
+        self.bg_anim_speed = 150  # ms por frame (como tu GIF)
+        # =============================
+
+        # ====== LOGO DEL JUEGO ======
+        # Asegúrate de que este archivo existe: assets/sprites/logo.png
+        self.logo_image = pygame.image.load("assets/sprites/logo.png").convert_alpha()
+
+        # Escalar el logo si es demasiado grande
+        max_logo_width = int(WINDOW_WIDTH * 0.3)
+        logo_w, logo_h = self.logo_image.get_size()
+        if logo_w > max_logo_width:
+            scale_factor = max_logo_width / logo_w
+            new_size = (int(logo_w * scale_factor), int(logo_h * scale_factor))
+            self.logo_image = pygame.transform.scale(self.logo_image, new_size)
+        # ============================
     
     def handle_events(self, events):
         """
@@ -103,8 +148,11 @@ class MenuState:
         return True  # Continuar ejecutando
     
     def update(self):
-        """Actualiza la lógica del menú (no hay mucho que hacer aquí)."""
-        pass
+        """Actualiza la lógica del menú (animación del fondo)."""
+        if self.bg_frames:
+            current_time = pygame.time.get_ticks()
+            # Cambia de frame cada bg_anim_speed ms
+            self.bg_frame_index = (current_time // self.bg_anim_speed) % len(self.bg_frames)
     
     def draw(self, screen):
         """
@@ -113,40 +161,24 @@ class MenuState:
         Args:
             screen: Superficie de pygame donde dibujar
         """
-        
-        # Cargar imagen de fondo (una sola vez, fuera del bucle principal)
-        background_image = pygame.image.load("assets/sprites/inicio.png").convert()
+        # ====== DIBUJAR FONDO ANIMADO ======
+        if self.bg_frames:
+            background_image = self.bg_frames[self.bg_frame_index]
+            bg_width, bg_height = background_image.get_size()
+            bg_x = (WINDOW_WIDTH - bg_width) // 2
+            bg_y = (WINDOW_HEIGHT - bg_height) // 2
+            screen.blit(background_image, (bg_x, bg_y))
+        else:
+            # Fallback si no hay frames
+            screen.fill(LIGHT_BLUE)
+        # ===================================
 
-        # Escalar la imagen para cubrir toda la ventana (tipo 'cover')
-        bg_width, bg_height = background_image.get_size()
-        scale_factor = max(WINDOW_WIDTH / bg_width, WINDOW_HEIGHT / bg_height)
-        new_size = (int(bg_width * scale_factor), int(bg_height * scale_factor))
-        background_image = pygame.transform.scale(background_image, new_size)
-
-        # Calcular posición para centrarla
-        bg_x = (WINDOW_WIDTH - new_size[0]) // 2
-        bg_y = (WINDOW_HEIGHT - new_size[1]) // 2
-
-        # Dibujar imagen de fondo
-        screen.blit(background_image, (bg_x, bg_y))
-
+        # ====== LOGO DEL JUEGO (en vez de texto) ======
+        logo_rect = self.logo_image.get_rect(center=(WINDOW_WIDTH // 2, 150))
+        screen.blit(self.logo_image, logo_rect)
+        # ==============================================
         
-        # Limpiar pantalla con color de fondo
-        # screen.fill(LIGHT_BLUE)
-        
-        # Título del juego
-        title_text = self.state_manager.font_large.render("Yul's Run", True, BLACK)
-        title_rect = title_text.get_rect(center=(WINDOW_WIDTH//2, 150))
-        screen.blit(title_text, title_rect)
-        
-        # Subtítulo
-        subtitle_text = self.state_manager.font_medium.render("¡Aventura Rusa... digo... Épica!", True, PURPLE)
-        subtitle_rect = subtitle_text.get_rect(center=(WINDOW_WIDTH//2, 200))
-        screen.blit(subtitle_text, subtitle_rect)
-        
-        # Instrucciones
-                # ====== PANEL GLASS PARA CONTROLES ======
-        # Calculamos el tamaño del panel según el contenido
+        # ====== PANEL GLASS PARA CONTROLES ======
         instructions = [
             "Controles:",
             "¡Usa las flechas para mover a la rusa!",
@@ -170,7 +202,6 @@ class MenuState:
         panel_rect = pygame.Rect(MARGIN_X - padding_x, start_y - padding_y, panel_w, panel_h)
 
         # 1) "Falso blur" del fondo bajo el panel (downscale -> upscale)
-        #    *Asegúrate de blitear el background antes de esto*
         sub = screen.subsurface(panel_rect).copy()
         small = pygame.transform.smoothscale(sub, (max(1, panel_rect.w // 8), max(1, panel_rect.h // 8)))
         blurred = pygame.transform.smoothscale(small, (panel_rect.w, panel_rect.h))
@@ -202,10 +233,6 @@ class MenuState:
                 surf = self.state_manager.font_small.render(instruction, True, color)
                 screen.blit(surf, (x_text, y_text + i * line_h))
 
-        
-        # TODO 9: Añadir demo visual o animación de fondo
-        # self.draw_background_animation(screen)
-
 
 class PlayingState:
     """
@@ -221,6 +248,16 @@ class PlayingState:
     def __init__(self, state_manager):
         """Constructor del estado de juego."""
         self.state_manager = state_manager
+        
+        # 🔊 Cargar sonidos una sola vez
+        self.snd_throw = pygame.mixer.Sound(SOUND_THROW)
+        self.snd_hit = pygame.mixer.Sound(SOUND_HIT)
+        self.snd_powerup = pygame.mixer.Sound(SOUND_POWERUP)
+
+        # Sube un poco volumen por si la música tapa los FX
+        self.snd_throw.set_volume(1.0)
+        self.snd_hit.set_volume(1.0)
+        self.snd_powerup.set_volume(1.0)
     
     def handle_events(self, events, player, knife_cooldown):
         new_knives = []
@@ -234,6 +271,7 @@ class PlayingState:
                         new_knives.append(new_knife)
                         knife_cooldown.start_cooldown()
                         # pygame.mixer.Sound(SOUND_THROW).play()
+                        self.snd_throw.play()
                 
                 elif event.key == KEY_P:
                     self.state_manager.change_state(STATE_PAUSED)
@@ -287,6 +325,11 @@ class PlayingState:
                     knives.remove(knife)
                     obstacles.remove(obstacle)
                     player.score += POINTS_PER_OBSTACLE_DESTROYED
+                    
+                    # 🔊 Sonido de impacto
+                    self.snd_hit.play()
+                    # Debug opcional:
+                    # print("HIT sonido disparado")
                     break
         
         # Colisiones jugador-powerups (incluye apple aquí)
@@ -294,20 +337,23 @@ class PlayingState:
             if player.rect.colliderect(powerup.rect):
                 powerups.remove(powerup)
                 player.score += POINTS_PER_POWERUP
+
+                # 🔊 Sonido de power-up
+                self.snd_powerup.play()
+                # Debug opcional:
+                # print("POWERUP sonido disparado:", powerup.type)
                 
                 if powerup.type == 'vodka':
                     effects.activate_vodka_boost(player)
                 elif powerup.type == 'tea':
                     effects.activate_tea_shield(player)
                 elif powerup.type == 'honey':
-                    # Si tienes efecto de miel, actívalo aquí; si no, aplica tu lógica actual
-                    # effects.activate_honey_slow(player)
-                    player.honey_timer = max(player.honey_timer, 240)  # ej. 4s si 60 FPS
+                    player.honey_timer = max(player.honey_timer, 240)
                 elif powerup.type == 'apple':
-                    # Manzana = +1 vida
                     player.lives += 1
                     print(f"🍎 Manzana recogida! Vidas: {player.lives}")
-                    # pygame.mixer.Sound(SOUND_POWERUP).play()
+
+
         
         return True  # Jugador sigue vivo
     
@@ -347,7 +393,6 @@ class PlayingState:
         knife_cooldown.draw_cooldown_bar(screen)
         effects.draw_active_effects(screen, self.state_manager.font_small)
 
-
 class GameOverState:
     """
     Estado de Game Over.
@@ -363,10 +408,36 @@ class GameOverState:
         self.best_score = 0
         self.is_new_record = False
 
-        # ================= Imagen de fondo =================
-        self.game_over_bg = pygame.image.load("assets/sprites/gameover.png").convert_alpha()
+        # ===== FONDO ESTÁTICO (fallback) =====
+        self.game_over_bg = pygame.image.load("assets/sprites/gameover.png").convert()
         self.game_over_bg = pygame.transform.scale(self.game_over_bg, (WINDOW_WIDTH, WINDOW_HEIGHT))
-        # ===================================================
+        # =====================================
+
+        # ===== FONDO ANIMADO (precargado) =====
+        self.bg_frames = []
+        frames_path = "assets/sprites/gameover_animated"
+
+        if os.path.isdir(frames_path):
+            for filename in sorted(os.listdir(frames_path)):
+                if filename.lower().endswith(".png"):
+                    full_path = os.path.join(frames_path, filename)
+                    img = pygame.image.load(full_path).convert()
+
+                    # === RECORTAR LA PARTE INFERIOR (donde está la firma) ===
+                    w, h = img.get_size()
+                    crop_bottom = 60  # píxeles a recortar desde abajo (ajusta este valor)
+                    if crop_bottom < h:
+                        crop_rect = pygame.Rect(0, 0, w, h - crop_bottom)
+                        img = img.subsurface(crop_rect)
+                    # ========================================================
+
+                    # Escalar la imagen recortada al tamaño de la ventana
+                    img = pygame.transform.scale(img, (WINDOW_WIDTH, WINDOW_HEIGHT))
+                    self.bg_frames.append(img)
+
+                self.bg_frame_index = 0
+                self.bg_anim_speed = 150  # ms por frame
+        # ======================================
     
     def set_scores(self, final_score, best_score):
         """Establece las puntuaciones para mostrar."""
@@ -385,28 +456,24 @@ class GameOverState:
         return True
     
     def update(self):
-        """Actualiza la lógica del Game Over."""
-        pass
+        """Actualiza la lógica del Game Over (animación de fondo)."""
+        if self.bg_frames:
+            current_time = pygame.time.get_ticks()
+            self.bg_frame_index = (current_time // self.bg_anim_speed) % len(self.bg_frames)
     
     def draw(self, screen):
         """Dibuja la pantalla de Game Over."""
-        # ================= Dibujar fondo =================
-        screen.blit(self.game_over_bg, (0, 0))
-        # =================================================
+        # Fondo (animado si hay frames, estático si no)
+        if self.bg_frames:
+            bg = self.bg_frames[self.bg_frame_index]
+            screen.blit(bg, (0, 0))
+        else:
+            screen.blit(self.game_over_bg, (0, 0))
 
-        # Título de Game Over
-        game_over_text = self.state_manager.font_large.render("¡GAME OVER Y TAL!", True, RED)
-        title_rect = game_over_text.get_rect(center=(WINDOW_WIDTH // 2, 150))
-        screen.blit(game_over_text, title_rect)
-
-        # (Opcional) overlay semi-transparente para efecto dramático
+        # Overlay dramático
         overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 100))  # Negro con alpha 100
         screen.blit(overlay, (0, 0))
-
-        
-        # Dibujar fondo con la imagen
-        screen.blit(self.game_over_bg, (0, 0))
 
         # Título de Game Over
         game_over_text = self.state_manager.font_large.render("¡GAME OVER Y TAL!", True, RED)
@@ -414,7 +481,9 @@ class GameOverState:
         screen.blit(game_over_text, title_rect)
         
         # Puntuación final
-        score_text = self.state_manager.font_medium.render(f"Cachopo-Puntuación: {self.final_score}", True, WHITE)
+        score_text = self.state_manager.font_medium.render(
+            f"Cachopo-Puntuación: {self.final_score}", True, WHITE
+        )
         score_rect = score_text.get_rect(center=(WINDOW_WIDTH//2, 220))
         screen.blit(score_text, score_rect)
         
@@ -422,8 +491,9 @@ class GameOverState:
         if self.is_new_record:
             record_text = self.state_manager.font_medium.render("¡NUEVO RÉCORD!", True, YELLOW)
         else:
-            record_text = self.state_manager.font_medium.render(f"Récord: {self.best_score}", True, GRAY)
-        
+            record_text = self.state_manager.font_medium.render(
+                f"Récord: {self.best_score}", True, GRAY
+            )
         record_rect = record_text.get_rect(center=(WINDOW_WIDTH//2, 260))
         screen.blit(record_text, record_rect)
         
@@ -437,7 +507,6 @@ class GameOverState:
         exit_text = self.state_manager.font_small.render("ESC para salir", True, BLACK)
         exit_rect = exit_text.get_rect(topleft=(50, 380))
         screen.blit(exit_text, exit_rect)
-
 
 
 # ✅ IMPLEMENTADO: Estado de pausa
