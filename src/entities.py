@@ -762,15 +762,10 @@ class Knife:
                 # Dibujar sprite normal
                 screen.blit(sprite_to_draw, self.rect)
 
-
 class PowerUp:
     """
     Representa un power-up (vodka, tea, honey, apple).
     Caen desde arriba, con pequeños efectos visuales.
-
-    💡 NOTA DE DISEÑO:
-    - Se añade apply_effect(player) para aplicar el efecto al recogerlo.
-      Esto evita tener lógica de tipos repartida por el bucle principal.
     """
 
     def __init__(self, powerup_type):
@@ -796,7 +791,7 @@ class PowerUp:
             fallback_color = self.color
 
         elif powerup_type == 'tea':
-            self.color = TEA_COLOR           # solo para texto/tinte
+            self.color = TEA_COLOR           # solo para texto
             self.symbol = "T"
             sprite_path = os.path.join("assets", "sprites", "tea_pixelart.png")
             fallback_color = self.color      # color del rect si no hay sprite
@@ -836,47 +831,31 @@ class PowerUp:
             print(f"🍺 PowerUp ({powerup_type}): Sprite cargado desde", sprite_path)
 
         # Compatibilidad de blend flag entre versiones de pygame
-        self.BLEND_TINT = getattr(pygame, "BLEND_ALPHA_SDL2",
-                           getattr(pygame, "BLEND_RGBA_ADD", 0))
+        self.BLEND_TINT = getattr(
+            pygame, "BLEND_ALPHA_SDL2",
+            getattr(pygame, "BLEND_RGBA_ADD", 0)
+        )
 
     def apply_effect(self, player):
         """
-        ✅ Aplica el efecto del power-up sobre el jugador.
-
-        Args:
-            player (Player): instancia del jugador
-
-        Importante:
-        - Aquí se resuelve TODO el efecto (sumar vida, escudo, etc.)
-        - Para la manzana (apple) → +1 vida (limitado a PLAYER_LIVES)
+        Aplica el efecto del power-up sobre el jugador.
+        (Ahora mismo no la usamos porque la lógica está en main, pero la dejamos preparada)
         """
         if self.type == 'apple':
-            # 🍎 +1 vida, capado al máximo
-            gained = player.restore_life(1)
-            print(f"🍎 Apple: +{gained} vida(s) → {player.lives}/{PLAYER_LIVES}")
-
-            # Feedback opcional de partículas/sonido si gestionas fuera
-            try:
-                from utils import play_sound
-                play_sound('assets/sfx/apple_pick.wav', volume=0.8)
-            except Exception:
-                pass
+            max_lives = getattr(player, "max_lives", PLAYER_LIVES)
+            if player.lives < max_lives:
+                player.lives += 1
+            print(f"🍎 Apple: vidas → {player.lives}/{max_lives}")
 
         elif self.type == 'vodka':
-            # TODO: tu lógica vodka (ej: boost de velocidad temporal)
+            # Aquí podrías llamar a powerup_effects.activate_vodka_boost(player)
             pass
 
         elif self.type == 'tea':
-            # TODO: tu lógica tea (ej: escudo)
             player.has_shield = True
 
         elif self.type == 'honey':
-            # TODO: tu lógica honey (ej: ralentizar jugador/obstáculos)
-            pass
-
-        else:
-            # Tipos desconocidos (no debería ocurrir)
-            print(f"[WARN] PowerUp.apply_effect: tipo desconocido {self.type}")
+            player.honey_timer = 180
 
     def update(self):
         """
@@ -889,23 +868,32 @@ class PowerUp:
         self.sparkle_timer += 1
 
         # flotación ligera (usa int para evitar warnings)
-        self.float_offset = pygame.math.Vector2(1, 0).rotate(self.pulse_timer * 3).y * 2
+        self.float_offset = (
+            pygame.math.Vector2(1, 0).rotate(self.pulse_timer * 3).y * 2
+        )
         return self.rect.top < WINDOW_HEIGHT
 
     def draw(self, screen):
         """
-        Dibuja el power-up con efectos (pulso, brillo, tinte en tea, etc.)
+        Dibuja el power-up con efectos (pulso, brillo, etc.).
+        (Sin tinte raro extra para el té, solo sprite normal + pulso).
         """
         # aplicar offset de flotación (rect independiente para el render)
-        draw_rect = pygame.Rect(self.rect.x,
-                                int(self.rect.y + self.float_offset),
-                                self.rect.width,
-                                self.rect.height)
+        draw_rect = pygame.Rect(
+            self.rect.x,
+            int(self.rect.y + self.float_offset),
+            self.rect.width,
+            self.rect.height
+        )
 
         if self.using_fallback:
-            pulse_intensity = abs(pygame.math.Vector2(1, 0).rotate(self.pulse_timer * POWERUP_PULSE_SPEED).x)
+            pulse_intensity = abs(
+                pygame.math.Vector2(1, 0).rotate(self.pulse_timer * POWERUP_PULSE_SPEED).x
+            )
             base_color = self.color
-            pulse_color = tuple(int(c * (0.7 + 0.3 * pulse_intensity)) for c in base_color)
+            pulse_color = tuple(
+                int(c * (0.7 + 0.3 * pulse_intensity)) for c in base_color
+            )
 
             pygame.draw.rect(screen, pulse_color, draw_rect)
             border_color = tuple(min(255, c + 50) for c in base_color)
@@ -917,25 +905,22 @@ class PowerUp:
 
         else:
             # pulso por escala
-            pulse_intensity = abs(pygame.math.Vector2(1, 0).rotate(self.pulse_timer * POWERUP_PULSE_SPEED).x)
+            pulse_intensity = abs(
+                pygame.math.Vector2(1, 0).rotate(self.pulse_timer * POWERUP_PULSE_SPEED).x
+            )
             scale_factor = 0.9 + 0.2 * pulse_intensity
             sprite_to_draw = self.sprite
 
             if scale_factor != 1.0:
-                scaled_size = (int(self.rect.width * scale_factor),
-                               int(self.rect.height * scale_factor))
+                scaled_size = (
+                    int(self.rect.width * scale_factor),
+                    int(self.rect.height * scale_factor)
+                )
                 sprite_to_draw = pygame.transform.scale(self.sprite, scaled_size)
                 scaled_rect = sprite_to_draw.get_rect(center=draw_rect.center)
                 screen.blit(sprite_to_draw, scaled_rect)
             else:
                 screen.blit(sprite_to_draw, draw_rect)
-
-            # tinte suave para 'tea' (sin BLEND_ALPHA_SDL2 si no existe)
-            if self.type == 'tea' and self.BLEND_TINT:
-                tint_surface = pygame.Surface(draw_rect.size, pygame.SRCALPHA)
-                # alpha bajito para no “quemar” colores
-                tint_surface.fill((*TEA_COLOR, 80))
-                screen.blit(tint_surface, draw_rect, special_flags=self.BLEND_TINT)
 
         # brillo ocasional
         if self.sparkle_timer % 30 < 5:
@@ -948,6 +933,177 @@ class PowerUp:
             for p in sparkle_points:
                 pygame.draw.circle(screen, WHITE, p, 1)
 
+    
+    
+    
+    
+class PowerUpEffect:
+    """
+    Esta clase gestiona los efectos temporales de los power-ups.
+    
+    Cuando el jugador recoge un power-up, se activa un efecto que dura
+    un tiempo determinado. Esta clase maneja la duración y el estado
+    de estos efectos.
+    """
+    
+    def __init__(self):
+        """Constructor del sistema de efectos de power-ups."""
+        # Timers para cada tipo de power-up (en frames)
+        self.vodka_timer = 0      # Frames restantes del efecto Vodka Boost
+        self.tea_timer = 0        # Frames restantes del efecto Té Mágico
+        
+        # Estado original del jugador (para restaurar después)
+        self.original_speed = PLAYER_SPEED
+    
+    def activate_vodka_boost(self, player):
+        """
+        Activa el efecto Vodka Boost (aumenta velocidad).
+        
+        Args:
+            player: Instancia del jugador para modificar su velocidad
+        """
+        self.vodka_timer = VODKA_DURATION
+        
+        # Aumentar la velocidad del jugador
+        player.speed = int(self.original_speed * VODKA_SPEED_MULTIPLIER)
+        print("¡Vodka Boost activado! Velocidad aumentada.")  # Debug
+    
+    def activate_tea_shield(self, player):
+        """
+        Activa el efecto Té Mágico (escudo protector).
+        
+        Args:
+            player: Instancia del jugador para darle el escudo
+        """
+        self.tea_timer = TEA_DURATION
+        
+        # Activar escudo
+        player.has_shield = True
+        print("¡Té Mágico activado! Escudo protector obtenido.")  # Debug
+    
+    def update(self, player):
+        """
+        Actualiza todos los efectos activos (llamar cada frame).
+        
+        Args:
+            player: Instancia del jugador para modificar sus atributos
+        """
+        # Actualizar Vodka Boost
+        if self.vodka_timer > 0:
+            self.vodka_timer -= 1
+            
+            # Si el efecto termina, restaurar velocidad normal
+            if self.vodka_timer == 0:
+                player.speed = self.original_speed
+                print("Vodka Boost terminado. Velocidad normal restaurada.")  # Debug
+        
+        # Actualizar Té Mágico
+        if self.tea_timer > 0:
+            self.tea_timer -= 1
+            
+            # Si el efecto termina, quitar escudo
+            if self.tea_timer == 0:
+                player.has_shield = False
+                print("Té Mágico terminado. Escudo desactivado.")  # Debug
+    
+    def is_vodka_active(self):
+        """Comprueba si el efecto Vodka Boost está activo."""
+        return self.vodka_timer > 0
+    
+    def is_tea_active(self):
+        """Comprueba si el efecto Té Mágico está activo."""
+        return self.tea_timer > 0
+    
+    def get_vodka_time_left(self):
+        """Obtiene el tiempo restante del Vodka Boost en segundos."""
+        return self.vodka_timer / FPS
+    
+    def get_tea_time_left(self):
+        """Obtiene el tiempo restante del Té Mágico en segundos."""
+        return self.tea_timer / FPS
+    
+    # ✅ Método antiguo: efectos activos en la HUD (si algún día lo quieres usar otra vez)
+    def draw_active_effects(self, screen, font):
+        """
+        Dibuja los efectos activos en la pantalla (HUD lateral).
+        """
+        y_offset = 140  # Posición inicial (debajo de la barra de cooldown)
+        
+        if self.is_vodka_active():
+            time_left = f"⚡ Vodka Boost: {self.get_vodka_time_left():.1f}s"
+            text = font.render(time_left, True, VODKA_COLOR)
+            
+            text_rect = text.get_rect()
+            text_rect.x = 10
+            text_rect.y = y_offset
+            
+            background_rect = pygame.Rect(text_rect.x - 2, text_rect.y - 2,
+                                          text_rect.width + 4, text_rect.height + 4)
+            pygame.draw.rect(screen, BLACK, background_rect)
+            pygame.draw.rect(screen, VODKA_COLOR, background_rect, 1)
+            
+            screen.blit(text, text_rect)
+            y_offset += 25
+        
+        if self.is_tea_active():
+            time_left = f"🛡️ Té Mágico: {self.get_tea_time_left():.1f}s"
+            text = font.render(time_left, True, TEA_COLOR)
+            
+            text_rect = text.get_rect()
+            text_rect.x = 10
+            text_rect.y = y_offset
+            
+            background_rect = pygame.Rect(text_rect.x - 2, text_rect.y - 2,
+                                          text_rect.width + 4, text_rect.height + 4)
+            pygame.draw.rect(screen, BLACK, background_rect)
+            pygame.draw.rect(screen, TEA_COLOR, background_rect, 1)
+            
+            screen.blit(text, text_rect)
+            y_offset += 25
+
+    # ✅ NUEVO: mensajes debajo del jugador
+    def draw_active_effects_near_player(self, screen, player, font):
+        """
+        Dibuja mensajes de efectos activos debajo del jugador.
+        """
+        messages = []
+
+        # Vodka → velocidad
+        if self.is_vodka_active():
+            messages.append(("¡VELOCIDAD AUMENTADA!", VODKA_COLOR))
+
+        # Té → escudo
+        if self.is_tea_active() or getattr(player, "has_shield", False):
+            messages.append(("¡ESCUDO ACTIVO!", TEA_COLOR))
+
+        # Miel → más lento (usamos honey_timer del player)
+        if getattr(player, "honey_timer", 0) > 0:
+            messages.append(("¡TE MUEVES MÁS LENTO!", HONEY_COLOR))
+
+        if not messages:
+            return
+
+        # Posición base: debajo del jugador
+        base_x = player.rect.centerx
+        base_y = player.rect.bottom + 10
+
+        for i, (msg, color) in enumerate(messages):
+            text_surf = font.render(msg, True, color)
+            text_rect = text_surf.get_rect(
+                midtop=(base_x, base_y + i * (text_surf.get_height() + 4))
+            )
+
+            # Fondo para legibilidad
+            bg_rect = pygame.Rect(
+                text_rect.x - 4,
+                text_rect.y - 2,
+                text_rect.width + 8,
+                text_rect.height + 4,
+            )
+            pygame.draw.rect(screen, BLACK, bg_rect)
+            pygame.draw.rect(screen, color, bg_rect, 1)
+
+            screen.blit(text_surf, text_rect)
 
 
 # ✅ IMPLEMENTADO: Clase Enemy para enemigos más complejos

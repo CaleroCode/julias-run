@@ -242,14 +242,20 @@ class PlayingState:
         """Constructor del estado de juego."""
         self.state_manager = state_manager
         
-        # 🔊 Sonidos
-        self.snd_throw = pygame.mixer.Sound(SOUND_THROW)
-        self.snd_hit = pygame.mixer.Sound(SOUND_HIT)
-        self.snd_powerup = pygame.mixer.Sound(SOUND_POWERUP)
+        # 🔊 Sonidos (protegidos con try/except para evitar crasheos)
+        self.snd_throw = None
+        self.snd_hit = None
+        self.snd_powerup = None
+        try:
+            self.snd_throw = pygame.mixer.Sound(SOUND_THROW)
+            self.snd_hit = pygame.mixer.Sound(SOUND_HIT)
+            self.snd_powerup = pygame.mixer.Sound(SOUND_POWERUP)
 
-        self.snd_throw.set_volume(1.0)
-        self.snd_hit.set_volume(1.0)
-        self.snd_powerup.set_volume(1.0)
+            self.snd_throw.set_volume(0.3)
+            self.snd_hit.set_volume(0.2)
+            self.snd_powerup.set_volume(0.2)
+        except Exception as e:
+            print(f"[PlayingState] Error cargando sonidos: {e}")
 
         # ================= HUD PIXELART =================
         self.hud_bg_color = (20, 12, 40)     
@@ -276,8 +282,31 @@ class PlayingState:
         except Exception as e:
             print(f"[HUD] No se pudieron cargar iconos pixelart: {e}")
         # =================================================
+        
+        # 👉 NUEVO: sprite "¡AY!" al recibir daño (escalado pequeño)
+        try:
+            ay_raw = pygame.image.load("assets/sprites/ay.png").convert_alpha()
+            # Escala a un tamaño más pequeño, ajusta (32, 32) si lo quieres aún más mini
+            self.ay_image = pygame.transform.smoothscale(ay_raw, (2, 2))
+        except Exception as e:
+            print(f"[HUD] No se pudo cargar ay.png: {e}")
+            self.ay_image = None
+
+
+        # 👉 NUEVO: temporizador del sprite "¡AY!"
+        self.ay_timer = 0
+        # ====================================
+
+        # ANTES: self.reset_game()
+        # Esa lógica ahora vive en JuliasRunGame.reset_game(), así que aquí no se llama nada más.
     
     def handle_events(self, events, player, knife_cooldown):
+        """
+        Maneja los eventos durante el gameplay.
+        
+        Devuelve:
+            (new_knives, continuar_jugando: bool)
+        """
         new_knives = []
         
         for event in events:
@@ -288,21 +317,40 @@ class PlayingState:
                         new_knife = Knife(player.rect)
                         new_knives.append(new_knife)
                         knife_cooldown.start_cooldown()
-                        self.snd_throw.play()
+                        if self.snd_throw is not None:
+                            self.snd_throw.play()
                 
                 elif event.key == KEY_P:
                     self.state_manager.change_state(STATE_PAUSED)
                     print("Juego pausado")
                 
                 elif event.key == KEY_ESCAPE:
-                    return new_knives, False  # Salir del juego
+                    # Salir del juego (el game loop en main.py interpretará este False)
+                    return new_knives, False
         
         return new_knives, True  # Continuar jugando
     
     def update(self, player, obstacles, knives, powerups, effects, knife_cooldown):
         """
         Actualiza toda la lógica del juego.
+
+        OJO: con tu nuevo main.py, probablemente ya no uses este método,
+        porque la lógica está centralizada en JuliasRunGame.update_game_logic().
+        Lo dejo funcional igualmente por si lo sigues usando en algún sitio.
         """
+        # ================== debug colisiones / sonidos ==================
+        # Si te molesta el spam en consola, comenta estas líneas:
+        # print("----- FRAME UPDATE -----")
+        # print("PLAYER:", player.rect)
+        # print("   Obstáculos:", len(obstacles))
+        # print("   Powerups:", len(powerups))
+        # print("   Knives:", len(knives))
+        # ===================================================
+
+        # 👉 NUEVO: actualizar el temporizador del sprite "¡AY!"
+        if self.ay_timer > 0:
+            self.ay_timer -= 1
+        
         # Timers
         knife_cooldown.update()
         effects.update(player)
@@ -330,27 +378,40 @@ class PlayingState:
         # Colisiones jugador-obstáculos
         for obstacle in obstacles[:]:
             if player.rect.colliderect(obstacle.rect):
+                # player.take_damage() devuelve True si sigue vivo, False si muere
                 if player.take_damage():
                     obstacles.remove(obstacle)
+                    # 👉 NUEVO: mostrar sprite "¡AY!" encima de la cabeza
+                    self.ay_timer = 30  # ~0.5s a 60 FPS
+                    if self.snd_hit is not None:
+                        self.snd_hit.play()
                 else:
+                    # Última vida: también mostramos "¡AY!" justo antes del Game Over
+                    self.ay_timer = 30
+                    if self.snd_hit is not None:
+                        self.snd_hit.play()
                     return False  # Game Over
                         
         # Colisiones cuchillo-obstáculos
         for knife in knives[:]:
             for obstacle in obstacles[:]:
                 if knife.rect.colliderect(obstacle.rect):
+                    print("COLISIÓN CUCHILLO-OBSTACULO!!")
                     knives.remove(knife)
                     obstacles.remove(obstacle)
                     player.score += POINTS_PER_OBSTACLE_DESTROYED
-                    self.snd_hit.play()
+                    if self.snd_hit is not None:
+                        self.snd_hit.play()
                     break
         
         # Colisiones jugador-powerups
         for powerup in powerups[:]:
             if player.rect.colliderect(powerup.rect):
+                print(f"powerup recogido: {powerup.type}")
                 powerups.remove(powerup)
                 player.score += POINTS_PER_POWERUP
-                self.snd_powerup.play()
+                if self.snd_powerup is not None:
+                    self.snd_powerup.play()
                 
                 if powerup.type == 'vodka':
                     effects.activate_vodka_boost(player)
@@ -363,13 +424,18 @@ class PlayingState:
                     print(f"🍎 Manzana recogida! Vidas: {player.lives}")
         
         return True  # Jugador sigue vivo
-    
+
     def draw(self, screen, player, obstacles, knives, powerups, effects, knife_cooldown):
         """
         Dibuja todo el estado del juego.
+
+        Igual que con update(), en tu nuevo main probablemente ya dibujas
+        directamente desde JuliasRunGame.draw_game_content(), pero esta
+        función se queda operativa por si aún la usas.
         """
         screen.fill(BLACK)
         
+        # Jugador y entidades
         player.draw(screen)
         for obstacle in obstacles:
             obstacle.draw(screen)
@@ -377,9 +443,10 @@ class PlayingState:
             knife.draw(screen)
         for powerup in powerups:
             powerup.draw(screen)
-        
-        self.draw_hud(screen, player, effects, knife_cooldown)
 
+        # HUD
+        self.draw_hud(screen, player, effects, knife_cooldown)
+  
     def draw_hud(self, screen, player, effects, knife_cooldown):
         """
         HUD estilo pixelart:
@@ -447,6 +514,7 @@ class PlayingState:
 
         # EFECTOS ACTIVOS
         effects.draw_active_effects(screen, self.font_hud_small)
+
 
 class GameOverState:
     """

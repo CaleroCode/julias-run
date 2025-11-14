@@ -134,7 +134,6 @@ class CooldownTimer:
             text_rect = text.get_rect(center=(x + width // 2, y - 12))
             screen.blit(text, text_rect)
 
-
 class PowerUpEffect:
     """
     Esta clase gestiona los efectos temporales de los power-ups.
@@ -161,15 +160,10 @@ class PowerUpEffect:
         Args:
             player: Instancia del jugador para modificar su velocidad
         """
-        
         self.vodka_timer = VODKA_DURATION
         
         # Aumentar la velocidad del jugador
         player.speed = int(self.original_speed * VODKA_SPEED_MULTIPLIER)
-        
-        # TODO 4: Añadir efecto sonoro
-        
-        # pygame.mixer.Sound(SOUND_POWERUP).play()
         
         print("¡Vodka Boost activado! Velocidad aumentada.")  # Debug
     
@@ -180,14 +174,10 @@ class PowerUpEffect:
         Args:
             player: Instancia del jugador para darle el escudo
         """
-        
         self.tea_timer = TEA_DURATION
         
         # Activar escudo
         player.has_shield = True
-        
-        # TODO 4: Añadir efecto sonoro
-        # pygame.mixer.Sound(SOUND_POWERUP).play()
         
         print("¡Té Mágico activado! Escudo protector obtenido.")  # Debug
     
@@ -198,7 +188,6 @@ class PowerUpEffect:
         Args:
             player: Instancia del jugador para modificar sus atributos
         """
-        
         # Actualizar Vodka Boost
         if self.vodka_timer > 0:
             self.vodka_timer -= 1
@@ -233,29 +222,23 @@ class PowerUpEffect:
         """Obtiene el tiempo restante del Té Mágico en segundos."""
         return self.tea_timer / FPS
     
-    # ✅ IMPLEMENTADO: Método para mostrar efectos activos en pantalla
+    # ✅ IMPLEMENTADO: Método para mostrar efectos activos en la HUD (antiguo)
     def draw_active_effects(self, screen, font):
         """
-        Dibuja los efectos activos en la pantalla.
-        
-        Args:
-            screen: Superficie donde dibujar
-            font: Fuente para el texto
+        Dibuja los efectos activos en la pantalla (HUD lateral).
         """
         y_offset = 140  # Posición inicial (debajo de la barra de cooldown)
         
         if self.is_vodka_active():
-            # ✅ IMPLEMENTADO: Efecto visual para Vodka Boost
             time_left = f"⚡ Vodka Boost: {self.get_vodka_time_left():.1f}s"
             text = font.render(time_left, True, VODKA_COLOR)
             
-            # Fondo semi-transparente para mejor legibilidad
             text_rect = text.get_rect()
             text_rect.x = 10
             text_rect.y = y_offset
             
             background_rect = pygame.Rect(text_rect.x - 2, text_rect.y - 2,
-                                        text_rect.width + 4, text_rect.height + 4)
+                                          text_rect.width + 4, text_rect.height + 4)
             pygame.draw.rect(screen, BLACK, background_rect)
             pygame.draw.rect(screen, VODKA_COLOR, background_rect, 1)
             
@@ -263,22 +246,65 @@ class PowerUpEffect:
             y_offset += 25
         
         if self.is_tea_active():
-            # ✅ IMPLEMENTADO: Efecto visual para Té Mágico
             time_left = f"🛡️ Té Mágico: {self.get_tea_time_left():.1f}s"
             text = font.render(time_left, True, TEA_COLOR)
             
-            # Fondo semi-transparente
             text_rect = text.get_rect()
             text_rect.x = 10
             text_rect.y = y_offset
             
             background_rect = pygame.Rect(text_rect.x - 2, text_rect.y - 2,
-                                        text_rect.width + 4, text_rect.height + 4)
+                                          text_rect.width + 4, text_rect.height + 4)
             pygame.draw.rect(screen, BLACK, background_rect)
             pygame.draw.rect(screen, TEA_COLOR, background_rect, 1)
             
             screen.blit(text, text_rect)
             y_offset += 25
+
+    # ✅ NUEVO: mensajes debajo del jugador
+    def draw_active_effects_near_player(self, screen, player, font):
+        """
+        Dibuja mensajes de efectos activos debajo del jugador.
+        """
+        messages = []
+
+        # Vodka → velocidad
+        if self.is_vodka_active():
+            messages.append(("¡VELOCIDAD AUMENTADA!", VODKA_COLOR))
+
+        # Té → escudo
+        if self.is_tea_active() or getattr(player, "has_shield", False):
+            messages.append(("¡ESCUDO ACTIVO!", TEA_COLOR))
+
+        # Miel → más lento (usamos honey_timer del player)
+        if getattr(player, "honey_timer", 0) > 0:
+            messages.append(("¡TE MUEVES MÁS LENTO!", HONEY_COLOR))
+
+        if not messages:
+            return
+
+        # Posición base: debajo del jugador
+        base_x = player.rect.centerx
+        base_y = player.rect.bottom + 10
+
+        for i, (msg, color) in enumerate(messages):
+            text_surf = font.render(msg, True, color)
+            text_rect = text_surf.get_rect(
+                midtop=(base_x, base_y + i * (text_surf.get_height() + 4))
+            )
+
+            # Fondo para legibilidad
+            bg_rect = pygame.Rect(
+                text_rect.x - 4,
+                text_rect.y - 2,
+                text_rect.width + 8,
+                text_rect.height + 4,
+            )
+            pygame.draw.rect(screen, BLACK, bg_rect)
+            pygame.draw.rect(screen, color, bg_rect, 1)
+
+            screen.blit(text_surf, text_rect)
+
 
 
 # ✅ IMPLEMENTADO: Clase para efectos de partículas

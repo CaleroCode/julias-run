@@ -77,7 +77,7 @@ class JuliasRunGame:
         self.show_loading_screen()
         
         # Fondo scroll
-        self.background = pygame.image.load("assets//sprites/background.png").convert()
+        self.background = pygame.image.load("assets/sprites/background.png").convert()
         self.background_y = 0
         
         # Control de tiempo (FPS)
@@ -96,15 +96,14 @@ class JuliasRunGame:
         
         # ✅ IMPLEMENTADO: Variables adicionales para funcionalidad completa
         self.debug_mode = False        # Modo debug (activar con F1)
-        self.show_fps = False         # Mostrar FPS (activar con F2)
-        self.game_start_time = 0      # Para tracking de tiempo de juego
+        self.show_fps = False          # Mostrar FPS (activar con F2)
+        self.game_start_time = 0       # Para tracking de tiempo de juego
 
         # === CONFIG HUD PIXELART ===
         # Colores estilo retro para la barra superior (sin azul chillón)
         self.hud_bg_color = (10, 10, 10)            # base oscura (la usaremos con alpha)
         self.hud_border_color = (200, 160, 255)     # lila suave en vez de azul
         self.hud_text_color = (240, 240, 240)
-
 
         # Fuentes tipo pixel (si falla, usamos las del state_manager)
         try:
@@ -117,6 +116,40 @@ class JuliasRunGame:
             self.font_hud_small = self.state_manager.font_small
 
         # Iconos de corazón y escudo en pixelart (fallback a círculos/texto si no existen)
+        # 👉 AY PNG — al recibir daño (escalado pequeño de verdad)
+        try:
+            ay_raw = pygame.image.load("assets/sprites/ay.png").convert_alpha()
+            # Antes: (140, 140) → demasiado tocho
+            # Prueba con algo mucho más pequeño:
+            self.ay_image = pygame.transform.smoothscale(ay_raw, (60, 60))
+            print("[AY] Tamaño sprite:", self.ay_image.get_size())  # debug opcional
+        except Exception as e:
+            print("ERROR cargando ay.png:", e)
+            self.ay_image = None
+
+        self.ay_timer = 0   # frames para mostrar el AY
+
+        # 👉 NUEVO: iconos de RICO (arriba) y EXTRA (abajo) al coger manzana
+        try:
+            rico_raw = pygame.image.load("assets/sprites/rico.png").convert_alpha()
+            # Ajusta el tamaño si lo quieres más pequeño/grande
+            self.rico_image = pygame.transform.smoothscale(rico_raw, (150, 150))
+        except Exception as e:
+            print("ERROR cargando rico.png:", e)
+            self.rico_image = None
+
+        try:
+            extra_raw = pygame.image.load("assets/sprites/extra.png").convert_alpha()
+            self.extra_image = pygame.transform.smoothscale(extra_raw, (160, 160))
+        except Exception as e:
+            print("ERROR cargando extra.png:", e)
+            self.extra_image = None
+
+        # Timers para mostrar los iconos unos cuantos frames
+        self.rico_timer = 0
+        self.extra_timer = 0
+
+
         self.heart_icon = None
         self.shield_icon = None
         try:
@@ -335,7 +368,14 @@ class JuliasRunGame:
         Returns:
             bool: True si el jugador sigue vivo, False si Game Over
         """
-        
+        # Reducir timer del AY
+        if self.ay_timer > 0:
+            self.ay_timer -= 1
+        # Reducir timers de RICO y EXTRA
+        if self.rico_timer > 0:
+            self.rico_timer -= 1
+        if self.extra_timer > 0:
+            self.extra_timer -= 1
         # Actualizar timers y sistemas
         self.knife_cooldown.update()
         self.powerup_effects.update(self.player)
@@ -388,30 +428,69 @@ class JuliasRunGame:
         all_threats = self.obstacles + self.enemies
         for threat in all_threats[:]:
             if self.player.rect.colliderect(threat.rect):
-                # Remover la amenaza
-                if threat in self.obstacles:
-                    self.obstacles.remove(threat)
-                else:
-                    self.enemies.remove(threat)
-                
-                # ✅ IMPLEMENTADO: Efectos al recibir daño
-                if not self.player.take_damage():
-                    # Game Over
+
+                # 💀 CASO ESPECIAL: si es un Enemy → muerte instantánea
+                if isinstance(threat, Enemy) or getattr(threat, "obstacle_type", "") == "enemy":
+                    # Quitar al enemigo de la lista correspondiente
+                    if threat in self.enemies:
+                        self.enemies.remove(threat)
+                    elif threat in self.obstacles:
+                        self.obstacles.remove(threat)
+
+                    # Vidas a 0 y sonido de golpe
+                    self.player.lives = 0
+                    pygame.mixer.Sound(SOUND_HIT).play()
+
+
+                    # Efectos visuales dramáticos
+                    self.screen_effects.start_screen_shake()
+                    impact_particles = ParticleEffect(
+                        threat.rect.centerx, threat.rect.centery,
+                        RED, particle_count=12, effect_type="explosion"
+                    )
+                    self.particles.append(impact_particles)
+                    # Activar AY en muerte instantánea
+                    self.ay_timer = 30
+                    # Game Over directo
                     return False
-                
-                # Resetear combo al recibir daño
-                self.combo_system.add_miss()
-                
-                # ✅ IMPLEMENTADO: Efectos visuales al recibir daño
-                self.screen_effects.start_screen_shake()
-                
-                # Crear efecto de partículas en el punto de impacto
-                impact_particles = ParticleEffect(
-                    threat.rect.centerx, threat.rect.centery, 
-                    RED, particle_count=8, effect_type="explosion"
-                )
-                self.particles.append(impact_particles)
-        
+
+                # 🧱 CASO NORMAL: obstáculo / amenaza normal
+                else:
+                    # Remover la amenaza
+                    if threat in self.obstacles:
+                        self.obstacles.remove(threat)
+                    else:
+                        self.enemies.remove(threat)
+                    
+                    # ✅ Efectos al recibir daño "normal"
+                    if not self.player.take_damage():
+                        # Sonido de golpe (hit) al morir también
+                        pygame.mixer.Sound(SOUND_HIT).play()
+
+                        # Activar AY aunque muera
+                        self.ay_timer = 30
+                        # Game Over
+                        return False
+                    
+                    # Sonido de golpe si sigue vivo
+                    # Activar AY
+                    self.ay_timer = 30
+                    pygame.mixer.Sound(SOUND_HIT).play()
+
+                    
+                    # Resetear combo al recibir daño
+                    self.combo_system.add_miss()
+                    
+                    # ✅ Efectos visuales al recibir daño
+                    self.screen_effects.start_screen_shake()
+                    
+                    # Crear efecto de partículas en el punto de impacto
+                    impact_particles = ParticleEffect(
+                        threat.rect.centerx, threat.rect.centery, 
+                        RED, particle_count=8, effect_type="explosion"
+                    )
+                    self.particles.append(impact_particles)
+   
         # ✅ IMPLEMENTADO: Detección de colisiones cuchillo-amenazas
         for knife in self.knives[:]:
             hit_something = False
@@ -427,6 +506,10 @@ class JuliasRunGame:
                     points = self.combo_system.get_combo_bonus_points(POINTS_PER_OBSTACLE_DESTROYED)
                     self.player.score += points
                     self.combo_system.add_hit()
+
+                    # 🔊 Sonido de hit
+                    pygame.mixer.Sound(SOUND_HIT).play()
+
                     
                     # ✅ IMPLEMENTADO: Crear explosión visual
                     explosion = Explosion(obstacle.rect.centerx, obstacle.rect.centery)
@@ -439,8 +522,10 @@ class JuliasRunGame:
                     )
                     self.particles.append(explosion_particles)
                     
-                    debug_print(f"Obstáculo destruido: +{points} puntos (combo x{self.combo_system.combo_count})", 
-                              debug_mode=self.debug_mode)
+                    debug_print(
+                        f"Obstáculo destruido: +{points} puntos (combo x{self.combo_system.combo_count})", 
+                        debug_mode=self.debug_mode
+                    )
                     hit_something = True
                     break
             
@@ -455,6 +540,10 @@ class JuliasRunGame:
                         points = self.combo_system.get_combo_bonus_points(POINTS_PER_OBSTACLE_DESTROYED * 3)
                         self.player.score += points
                         self.combo_system.add_hit()
+
+                        # 🔊 Sonido de hit
+                        pygame.mixer.Sound(SOUND_HIT).play()
+
                         
                         # Explosión más grande para enemigos
                         explosion = Explosion(enemy.rect.centerx, enemy.rect.centery, PURPLE)
@@ -466,22 +555,42 @@ class JuliasRunGame:
         # Detectar colisiones jugador-power-ups
         for powerup in self.powerups[:]:
             if self.player.rect.colliderect(powerup.rect):
+                # Quitamos el powerup de la lista
                 self.powerups.remove(powerup)
                 
-                # ✅ IMPLEMENTADO: Puntos con sistema de combos
+                # ✅ Puntos con sistema de combos
                 points = self.combo_system.get_combo_bonus_points(POINTS_PER_POWERUP)
                 self.player.score += points
+
+                # 🔊 Sonido de powerup
+                self.playing_state.snd_powerup.play()
                 
-                # Activar efecto según el tipo
+                # ✅ Activar efecto según el tipo
                 if powerup.type == 'vodka':
                     self.powerup_effects.activate_vodka_boost(self.player)
+
                 elif powerup.type == 'tea':
                     self.powerup_effects.activate_tea_shield(self.player)
+
                 elif powerup.type == 'honey':
-                    self.player.speed *=0.2
+                    self.player.speed *= 0.2
                     self.player.honey_timer = 180
+
+                elif powerup.type == 'apple':
+                    # 🍎 +1 vida, con tope al máximo
+                    max_lives = getattr(self.player, "max_lives", PLAYER_LIVES)
+                    if self.player.lives < max_lives:
+                        self.player.lives += 1
+                    debug_print(
+                        f"🍎 Has pillao manzana! Vidas: {self.player.lives}/{max_lives}",
+                        debug_mode=True
+                    )
+                    
+                    # 👉 NUEVO: mostrar RICO arriba y EXTRA abajo durante unos frames
+                    self.rico_timer = 30   # medio segundo aprox a 60 FPS
+                    self.extra_timer = 30
                 
-                # ✅ IMPLEMENTADO: Efectos visuales para power-ups
+                # ✅ Efectos visuales para power-ups
                 sparkle_particles = ParticleEffect(
                     powerup.rect.centerx, powerup.rect.centery,
                     powerup.color, particle_count=10, effect_type="sparkle"
@@ -491,7 +600,7 @@ class JuliasRunGame:
                 debug_print(f"Power-up recogido: +{points} puntos", debug_mode=self.debug_mode)
         
         return True  # Jugador sigue vivo
-    
+
     def handle_game_over(self):
         """
         Maneja la transición a Game Over.
@@ -590,6 +699,60 @@ class JuliasRunGame:
         
         # Dibujar todas las entidades
         self.player.draw(surface)
+        # Dibujar AY PNG encima del player
+        try:
+            if (
+                self.ay_timer > 0
+                and self.ay_image is not None
+                and hasattr(self.player, "rect")
+                and self.player.rect is not None
+                and isinstance(self.player.rect, pygame.Rect)
+            ):
+                ay_rect = self.ay_image.get_rect(
+                    midbottom=(self.player.rect.centerx, self.player.rect.top - 5)
+                )
+                surface.blit(self.ay_image, ay_rect)
+        except Exception as e:
+            print("AY EXCEPTION FIX:", e)
+            
+        # 👉 RICO.png encima de la cabeza al coger manzana
+        try:
+            if (
+                self.rico_timer > 0
+                and self.rico_image is not None
+                and hasattr(self.player, "rect")
+                and self.player.rect is not None
+                and isinstance(self.player.rect, pygame.Rect)
+            ):
+                rico_rect = self.rico_image.get_rect(
+                    midbottom=(
+                        self.player.rect.centerx,
+                        self.player.rect.top + 40    # un poquito encima de la cabeza
+                    )
+                )
+                surface.blit(self.rico_image, rico_rect)
+        except Exception as e:
+            print("RICO EXCEPTION:", e)
+
+        # 👉 EXTRA.png debajo del jugador al coger manzana
+        try:
+            if (
+                self.extra_timer > 0
+                and self.extra_image is not None
+                and hasattr(self.player, "rect")
+                and self.player.rect is not None
+                and isinstance(self.player.rect, pygame.Rect)
+            ):
+                extra_rect = self.extra_image.get_rect(
+                    midtop=(
+                        self.player.rect.centerx,
+                        self.player.rect.bottom - 40   # un poquito debajo de los pies
+                    )
+                )
+                surface.blit(self.extra_image, extra_rect)
+        except Exception as e:
+            print("EXTRA EXCEPTION:", e)
+
         
         for obstacle in self.obstacles:
             obstacle.draw(surface)
@@ -610,8 +773,16 @@ class JuliasRunGame:
         for particle_effect in self.particles:
             particle_effect.draw(surface)
         
+        # ✅ NUEVO: mensajes de power-ups debajo del jugador
+        self.powerup_effects.draw_active_effects_near_player(
+            surface,
+            self.player,
+            self.state_manager.font_small
+        )
+            
         # Dibujar HUD (Heads-Up Display)
         self.draw_hud(surface)
+
     
     def draw_hud(self, surface):
         """
@@ -685,11 +856,11 @@ class JuliasRunGame:
         self.knife_cooldown.draw_cooldown_bar(surface)
         
         # --- EFECTOS ACTIVOS (vodka, té, etc.) ---
-        self.powerup_effects.draw_active_effects(surface, self.state_manager.font_small)
-        
+        # self.powerup_effects.draw_active_effects(surface, self.state_manager.font_small)
+
         # --- SISTEMA DE COMBOS ---
         self.combo_system.draw_combo_display(surface, self.state_manager.font_small)
-        
+
         # --- INDICADOR DE DIFICULTAD ---
         if self.current_difficulty > 1.0:
             diff_text = f"Dificultad: {self.current_difficulty:.1f}x"
@@ -737,8 +908,12 @@ class JuliasRunGame:
         fps_rect.top = 10
         
         # Fondo semi-transparente
-        bg_rect = pygame.Rect(fps_rect.x - 5, fps_rect.y - 2,
-                            fps_rect.width + 10, fps_rect.height + 4)
+        bg_rect = pygame.Rect(
+            fps_rect.x - 5,
+            fps_rect.y - 2,
+            fps_rect.width + 10,
+            fps_rect.height + 4
+        )
         pygame.draw.rect(self.screen, BLACK, bg_rect)
         pygame.draw.rect(self.screen, fps_color, bg_rect, 1)
         
@@ -816,10 +991,14 @@ def main():
         print("\nJuego interrumpido por el usuario.")
     
     except Exception as e:
-        # Error inesperado
-        print(f"Error inesperado: {e}")
+        print("💥 ERROR EN TIEMPO DE EJECUCIÓN 💥")
+        print("Tipo:", type(e))
+        print("Mensaje:", e)
         import traceback
         traceback.print_exc()
+        pygame.quit()
+        sys.exit()
+
     
     finally:
         # Asegurar que pygame se cierre correctamente
