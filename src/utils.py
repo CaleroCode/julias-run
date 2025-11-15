@@ -135,17 +135,19 @@ def should_spawn_powerup(frame_count):
     
     return frame_count % POWERUP_SPAWN_RATE == 0
 
-
 def get_random_powerup_type():
     """
     Selecciona aleatoriamente un tipo de power-up.
     
     Returns:
-        str: 'vodka', 'tea', 'honey', 'apple', 'navidad' o 'grinch'
+        str: 'vodka', 'tea', 'honey', 'apple', 'navidad', 'grinch' o 'shuriken'
     """
-    # Navidad y Grinch más raros
-    pool = ['vodka', 'tea', 'honey', 'apple'] * 2 + ['navidad', 'grinch']
+    # 'navidad', 'grinch' y 'shuriken' más raros
+    base = ['vodka', 'tea', 'honey', 'apple']
+    raros = ['navidad', 'grinch', 'shuriken']
+    pool = base * 3 + raros
     return random.choice(pool)
+
 
 
 

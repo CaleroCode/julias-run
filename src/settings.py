@@ -94,6 +94,10 @@ TEA_DURATION = 240     # 4 segundos a 60 FPS
 # Multiplicadores de efectos
 VODKA_SPEED_MULTIPLIER = 1.5  # El jugador se mueve 50% más rápido
 
+# 🔹 NUEVO: SHURIKEN
+SHURIKEN_DURATION = FPS * 10       # 10 segundos de duración
+SHURIKEN_COLOR = (0, 255, 255) 
+
 # === CONFIGURACIÓN DE PUNTUACIÓN ===
 POINTS_PER_OBSTACLE_AVOIDED = 1    # Puntos por esquivar obstáculo
 POINTS_PER_OBSTACLE_DESTROYED = 5  # Puntos por destruir obstáculo con cuchillo
@@ -167,7 +171,10 @@ SPRITE_JULIA_SNOW = "assets/sprites/julia_snow.png"
 MUSIC_BACKGROUND_CHRISTMAS = "assets/sounds/navidad.wav"
 
 
+# 🔹 NUEVO: sprite del shuriken (powerup/orbita)
+SPRITE_SHURIKEN = "assets/sprites/shuriken.png"
 # === NOTAS EDUCATIVAS ===
+
 """
 ¿Por qué usar constantes?
 1. Facilita el ajuste de valores sin buscar en todo el código

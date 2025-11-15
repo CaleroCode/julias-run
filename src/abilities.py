@@ -150,6 +150,9 @@ class PowerUpEffect:
         self.vodka_timer = 0      # Frames restantes del efecto Vodka Boost
         self.tea_timer = 0        # Frames restantes del efecto Té Mágico
         
+        # 🔹 NUEVO: Shuriken orbital
+        self.shuriken_timer = 0  
+        
         # Estado original del jugador (para restaurar después)
         self.original_speed = PLAYER_SPEED
     
@@ -180,6 +183,16 @@ class PowerUpEffect:
         player.has_shield = True
         
         print("¡Té Mágico activado! Escudo protector obtenido.")  # Debug
+        
+        
+    def activate_shuriken(self):
+        """
+        Activa el efecto Shuriken (tres shurikens orbitando al jugador).
+        La creación de los shurikens se hace en main.py; aquí solo controlamos tiempo.
+        """
+        self.shuriken_timer = SHURIKEN_DURATION
+        print("🌀 Shuriken activado: 10 segundos de destrucción radial.")
+
     
     def update(self, player):
         """
@@ -205,6 +218,12 @@ class PowerUpEffect:
             if self.tea_timer == 0:
                 player.has_shield = False
                 print("Té Mágico terminado. Escudo desactivado.")  # Debug
+                
+            # 🔹 NUEVO: Shuriken
+            if self.shuriken_timer > 0:
+                self.shuriken_timer -= 1
+            if self.shuriken_timer == 0:
+                print("🌀 Shuriken finalizado.")
     
     def is_vodka_active(self):
         """Comprueba si el efecto Vodka Boost está activo."""
@@ -221,6 +240,15 @@ class PowerUpEffect:
     def get_tea_time_left(self):
         """Obtiene el tiempo restante del Té Mágico en segundos."""
         return self.tea_timer / FPS
+    
+    def is_shuriken_active(self):
+        """Comprueba si el efecto Shuriken está activo."""
+        return self.shuriken_timer > 0
+    
+    def get_shuriken_time_left(self):
+        """Tiempo restante del Shuriken en segundos."""
+        return self.shuriken_timer / FPS
+
     
     # ✅ IMPLEMENTADO: Método para mostrar efectos activos en la HUD (antiguo)
     def draw_active_effects(self, screen, font):
@@ -279,6 +307,11 @@ class PowerUpEffect:
         # Miel → más lento (usamos honey_timer del player)
         if getattr(player, "honey_timer", 0) > 0:
             messages.append(("¡TE MUEVES MÁS LENTO!", HONEY_COLOR))
+            
+        # 🔹 NUEVO: mensaje con cuenta atrás del Shuriken
+        if self.is_shuriken_active():
+            time_left = self.get_shuriken_time_left()
+            messages.append((f"🌀 SHURIKEN: {time_left:4.1f}s", SHURIKEN_COLOR))
 
         if not messages:
             return

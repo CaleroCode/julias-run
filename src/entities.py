@@ -35,6 +35,7 @@ import pygame
 import random
 import os
 from settings import *
+import math
 
 # === GESTIÓN DE SPRITES ===
 """
@@ -777,6 +778,13 @@ class PowerUp:
             self.symbol = "G"
             sprite_path = os.path.join("assets", "sprites", "grinch.png")
             fallback_color = self.color
+            
+        elif powerup_type == 'shuriken':
+            self.color = SHURIKEN_COLOR
+            self.symbol = "S"
+            sprite_path = os.path.join("assets", "sprites", "shuriken.png")
+            fallback_color = self.color
+
 
         else:
             raise ValueError(f"Tipo de power-up desconocido: {powerup_type}")
@@ -903,7 +911,58 @@ class PowerUp:
         #     for p in sparkle_points:
         #         pygame.draw.circle(screen, WHITE, p, 1)
 
-    
+class Shuriken:
+    """
+    🌀 Shuriken orbital que gira alrededor del jugador y destruye enemigos.
+    No tiene timer propio: vive mientras el efecto SHURIKEN esté activo.
+    """
+
+    def __init__(self, player, angle_deg=0, radius=130, angular_speed_deg=3):
+        self.player = player
+        self.radius = radius
+        self.angle = math.radians(angle_deg)          # ángulo actual (radianes)
+        self.angular_speed = math.radians(angular_speed_deg)  # velocidad angular por frame
+        self.size = 64
+
+        # Sprite
+        self.sprite, self.using_fallback = load_sprite_with_fallback(
+            SPRITE_SHURIKEN,
+            SHURIKEN_COLOR,
+            self.size,
+            self.size
+        )
+
+        # Rect inicial
+        self.rect = pygame.Rect(0, 0, self.size, self.size)
+        self.rotation = 0
+        self._update_position()
+
+        if self.using_fallback:
+            print("🌀 Shuriken: usando fallback.")
+        else:
+            print("🌀 Shuriken: sprite cargado correctamente.")
+
+    def _update_position(self):
+        """Recalcula la posición del shuriken alrededor del jugador."""
+        cx, cy = self.player.rect.center
+        self.rect.centerx = int(cx + math.cos(self.angle) * self.radius)
+        self.rect.centery = int(cy + math.sin(self.angle) * self.radius)
+
+    def update(self):
+        """Hace girar al shuriken alrededor del jugador."""
+        self.angle += self.angular_speed
+        self.rotation += 12
+        self._update_position()
+        return True  # Siempre True; se borra desde fuera cuando acaba el efecto
+
+    def draw(self, screen):
+        if self.using_fallback:
+            pygame.draw.rect(screen, SHURIKEN_COLOR, self.rect)
+        else:
+            rotated = pygame.transform.rotate(self.sprite, self.rotation)
+            r = rotated.get_rect(center=self.rect.center)
+            screen.blit(rotated, r)
+
     
     
     
