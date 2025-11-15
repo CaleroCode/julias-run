@@ -157,6 +157,16 @@ SOUND_HIT = "assets/sounds/hit.wav"
 SOUND_POWERUP = "assets/sounds/powerup.wav"
 MUSIC_BACKGROUND = "assets/sounds/ost.wav"
 
+# === ASSETS DE NAVIDAD ===
+BACKGROUND_IMAGE = "assets/sprites/background.png"
+BACKGROUND_IMAGE_SNOW = "assets/sprites/background_snow.png"
+
+SPRITE_JULIA = "assets/sprites/julia_pixelart.png"
+SPRITE_JULIA_SNOW = "assets/sprites/julia_snow.png"
+
+MUSIC_BACKGROUND_CHRISTMAS = "assets/sounds/navidad.wav"
+
+
 # === NOTAS EDUCATIVAS ===
 """
 ¿Por qué usar constantes?

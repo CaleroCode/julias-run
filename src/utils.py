@@ -141,10 +141,13 @@ def get_random_powerup_type():
     Selecciona aleatoriamente un tipo de power-up.
     
     Returns:
-        str: 'vodka' o 'tea'
+        str: 'vodka', 'tea', 'honey', 'apple', 'navidad' o 'grinch'
     """
-    
-    return random.choice(['vodka', 'tea', 'honey', 'apple'])
+    # Navidad y Grinch más raros
+    pool = ['vodka', 'tea', 'honey', 'apple'] * 2 + ['navidad', 'grinch']
+    return random.choice(pool)
+
+
 
 
 

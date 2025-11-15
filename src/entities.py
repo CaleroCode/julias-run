@@ -111,7 +111,8 @@ def create_fallback_sprite(color, width, height):
     surface.fill(color)
     
     # Añadir un borde para distinguir que es un fallback
-    pygame.draw.rect(surface, WHITE, surface.get_rect(), 2)
+    # pygame.draw.rect(surface, WHITE, surface.get_rect(), 2)
+    
     
     return surface
 
@@ -168,13 +169,14 @@ class Player:
         self.honey_timer = 0                # Duración del efecto de ralentización
         
         # === CARGA DE SPRITE PARA JULIA ===
-        sprite_path = os.path.join("assets", "sprites", "julia_pixelart.png")
+        sprite_path = SPRITE_JULIA
         self.sprite, self.using_fallback = load_sprite_with_fallback(
-            sprite_path, 
-            PLAYER_COLOR,  # Color fallback si no hay imagen
-            PLAYER_WIDTH, 
+            sprite_path,
+            PLAYER_COLOR,
+            PLAYER_WIDTH,
             PLAYER_HEIGHT
         )
+
         
         # ✅ IMPLEMENTADO: Atributos para animaciones de sprites
         self.sprite_frame = 0          # Frame actual de animación
@@ -206,6 +208,18 @@ class Player:
             print("🎮 Player: Usando rectángulo fallback (imagen no encontrada)")
         else:
             print("🎮 Player: Sprite cargado exitosamente desde", sprite_path)
+
+    def set_sprite(self, sprite_path):
+        """
+        Cambia el sprite actual del jugador (para skins como el modo Navidad).
+        """
+        self.sprite, self.using_fallback = load_sprite_with_fallback(
+            sprite_path,
+            PLAYER_COLOR,
+            PLAYER_WIDTH,
+            PLAYER_HEIGHT
+        )
+
 
     def move(self, keys_pressed):
         """
@@ -334,7 +348,7 @@ class Player:
                          (8, self.rect.height // 2 - 4),
                          (8, self.rect.height // 2 + 4)]
             
-            pygame.draw.polygon(surf, WHITE, points)
+            # pygame.draw.polygon(surf, WHITE, points)
             
             # -------------------------------------------------------------
             # NUEVO: Rotar la superficie según rotation_angle (rotación visual)
@@ -602,72 +616,14 @@ class Obstacle:
         return self.rect.top < WINDOW_HEIGHT
     
     def draw(self, screen):
-        """Dibuja el obstáculo en la pantalla."""
+        """Dibuja el obstáculo en la pantalla sin efectos extra."""
         
-        # === RENDERIZADO DE SPRITE O FALLBACK ===
         if self.using_fallback:
-            # Si usamos fallback, dibujar rectángulo mejorado
-            # ✅ IMPLEMENTADO: Efecto de pulso para obstáculos
-            base_color = self.color
-            pulse_offset = int(abs(pygame.math.Vector2(1, 0).rotate(self.pulse_timer * 6).x) * 20)
-            pulse_color = tuple(min(255, max(0, c + pulse_offset)) for c in base_color)
-            
-            # Dibujar el obstáculo principal
-            pygame.draw.rect(screen, pulse_color, self.rect)
-            
-            # ✅ IMPLEMENTADO: Indicador visual del tipo de obstáculo
-            if self.obstacle_type == 'fast':
-                # Líneas para indicar velocidad
-                for i in range(3):
-                    line_y = self.rect.centery - 6 + i * 6
-                    pygame.draw.line(screen, WHITE, 
-                                   (self.rect.left + 2, line_y), 
-                                   (self.rect.right - 2, line_y), 1)
-            
-            elif self.obstacle_type == 'big':
-                # Cruz para indicar peligro
-                pygame.draw.line(screen, WHITE,
-                               (self.rect.left + 3, self.rect.top + 3),
-                               (self.rect.right - 3, self.rect.bottom - 3), 2)
-                pygame.draw.line(screen, WHITE,
-                               (self.rect.right - 3, self.rect.top + 3),
-                               (self.rect.left + 3, self.rect.bottom - 3), 2)
-            
-            # Borde del obstáculo
-            pygame.draw.rect(screen, BLACK, self.rect, 1)
-            
+            # Solo un rectángulo liso del color correspondiente
+            pygame.draw.rect(screen, self.color, self.rect)
         else:
-            # === RENDERIZADO DE SPRITE REAL ===
-            sprite_to_draw = self.sprite
-            
-            # Aplicar rotación visual si el obstáculo está cayendo
-            if self.rotation != 0:
-                # Rotar sprite alrededor de su centro
-                sprite_to_draw = pygame.transform.rotate(self.sprite, self.rotation)
-                
-                # Calcular nueva posición para que el centro se mantenga
-                old_center = self.rect.center
-                new_rect = sprite_to_draw.get_rect()
-                new_rect.center = old_center
-                
-                # Dibujar sprite rotado
-                screen.blit(sprite_to_draw, new_rect)
-            else:
-                # Dibujar sprite normal
-                screen.blit(sprite_to_draw, self.rect)
-            
-            # ✅ IMPLEMENTADO: Indicadores sobre el sprite para diferentes tipos
-            if self.obstacle_type == 'fast':
-                # Efecto de velocidad: líneas semi-transparentes
-                for i in range(3):
-                    line_y = self.rect.centery - 6 + i * 6
-                    pygame.draw.line(screen, (255, 255, 255, 150), 
-                                   (self.rect.left - 10, line_y), 
-                                   (self.rect.left - 5, line_y), 2)
-            
-            elif self.obstacle_type == 'big':
-                # Indicador de peligro: borde rojo
-                pygame.draw.rect(screen, RED, self.rect, 3)
+            # Solo el sprite, sin líneas, ni bordes, ni indicadores
+            screen.blit(self.sprite, self.rect)
 
 
 class Knife:
@@ -764,7 +720,7 @@ class Knife:
 
 class PowerUp:
     """
-    Representa un power-up (vodka, tea, honey, apple).
+    Representa un power-up (vodka, tea, honey, apple, navidad).
     Caen desde arriba, con pequeños efectos visuales.
     """
 
@@ -772,6 +728,8 @@ class PowerUp:
         # ----- Tamaño según tipo -----
         if powerup_type == 'tea':
             self.width, self.height = 100, 80
+        elif powerup_type == 'navidad':
+            self.width, self.height = 120, 120  # un pelín más grande para destacar
         else:
             self.width, self.height = POWERUP_WIDTH, POWERUP_HEIGHT
 
@@ -806,6 +764,18 @@ class PowerUp:
             self.color = (255, 0, 0)         # Rojo (fallback y texto)
             self.symbol = "A"
             sprite_path = os.path.join("assets", "sprites", "apple.png")
+            fallback_color = self.color
+
+        elif powerup_type == 'navidad':
+            self.color = (255, 0, 0)
+            self.symbol = "X"
+            sprite_path = os.path.join("assets", "sprites", "navidad.png")
+            fallback_color = self.color
+            
+        elif powerup_type == 'grinch':
+            self.color = (0, 200, 0)
+            self.symbol = "G"
+            sprite_path = os.path.join("assets", "sprites", "grinch.png")
             fallback_color = self.color
 
         else:
@@ -922,16 +892,16 @@ class PowerUp:
             else:
                 screen.blit(sprite_to_draw, draw_rect)
 
-        # brillo ocasional
-        if self.sparkle_timer % 30 < 5:
-            sparkle_points = [
-                (draw_rect.centerx, draw_rect.top - 3),
-                (draw_rect.right + 3, draw_rect.centery),
-                (draw_rect.centerx, draw_rect.bottom + 3),
-                (draw_rect.left - 3, draw_rect.centery),
-            ]
-            for p in sparkle_points:
-                pygame.draw.circle(screen, WHITE, p, 1)
+        # # brillo ocasional
+        # if self.sparkle_timer % 30 < 5:
+        #     sparkle_points = [
+        #         (draw_rect.centerx, draw_rect.top - 3),
+        #         (draw_rect.right + 3, draw_rect.centery),
+        #         (draw_rect.centerx, draw_rect.bottom + 3),
+        #         (draw_rect.left - 3, draw_rect.centery),
+        #     ]
+        #     for p in sparkle_points:
+        #         pygame.draw.circle(screen, WHITE, p, 1)
 
     
     
@@ -1179,17 +1149,17 @@ class Enemy(Obstacle):
         # Dibujar sprite principal
         screen.blit(self.image, self.rect.topleft)
         
-        # Indicador de que es un enemigo (ojos)
-        eye_size = 3
-        left_eye = (self.rect.left + 6, self.rect.top + 6)
-        right_eye = (self.rect.right - 6, self.rect.top + 6)
-        pygame.draw.circle(screen, WHITE, left_eye, eye_size)
-        pygame.draw.circle(screen, WHITE, right_eye, eye_size)
-        pygame.draw.circle(screen, RED, left_eye, 1)
-        pygame.draw.circle(screen, RED, right_eye, 1)
+        # # Indicador de que es un enemigo (ojos)
+        # eye_size = 3
+        # left_eye = (self.rect.left + 6, self.rect.top + 6)
+        # right_eye = (self.rect.right - 6, self.rect.top + 6)
+        # pygame.draw.circle(screen, WHITE, left_eye, eye_size)
+        # pygame.draw.circle(screen, WHITE, right_eye, eye_size)
+        # pygame.draw.circle(screen, RED, left_eye, 1)
+        # pygame.draw.circle(screen, RED, right_eye, 1)
         
         # Borde amenazante
-        pygame.draw.rect(screen, RED, self.rect, 2)
+        # pygame.draw.rect(screen, RED, self.rect, 2)
 
 
 

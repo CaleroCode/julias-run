@@ -11,6 +11,7 @@ Conceptos de programación cubiertos:
 - Máquina de estados
 - Gestión de eventos
 - Renderizado condicional
+
 - Flujo de control del programa
 
 Referencias útiles:

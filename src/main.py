@@ -77,10 +77,11 @@ class JuliasRunGame:
         self.show_loading_screen()
         
         # Fondo scroll
-        self.background = pygame.image.load("assets/sprites/background.png").convert()
-        
+        self.background = pygame.image.load(BACKGROUND_IMAGE).convert()
         self.background_y = 0
-    
+
+        # Flag modo Navidad
+        self.is_christmas_mode = False
 
         # === TUTORIAL: fondo + ilustraciones por página ===
         self.tutorial_bg = None
@@ -94,7 +95,7 @@ class JuliasRunGame:
         except Exception as e:
             print("[TUTORIAL] Error cargando assets/sprites/tutorial/fondo.png:", e)
 
-               # Ilustración de la primera página (abajo izquierda)
+        # Ilustración de la primera página (abajo izquierda)
         try:
             img = pygame.image.load("assets/sprites/tutorial/tutorial1.png").convert_alpha()
 
@@ -151,10 +152,6 @@ class JuliasRunGame:
                 print(f"[TUTORIAL] Error cargando {filename}:", e)
                 # Para no desalinear índices, metemos un hueco vacío
                 self.tutorial_extra_sprites.append((None, None))
-
-
-
-
         
         # Control de tiempo (FPS)
         self.clock = pygame.time.Clock()
@@ -225,7 +222,6 @@ class JuliasRunGame:
         self.rico_timer = 0
         self.extra_timer = 0
 
-
         self.heart_icon = None
         self.shield_icon = None
         try:
@@ -250,7 +246,7 @@ class JuliasRunGame:
             {
                 "title": "¡Bienvenido a Julia's Run!",
                 "lines": [
-                    "Soy Calero, el loco que está detrás de este juego,",
+                    "Soy Iván Calero, el loco que está detrás de este juego,",
                     "y a continuación te diré dónde te has metido..."
                 ],
             },
@@ -258,7 +254,8 @@ class JuliasRunGame:
                 "title": "¡Y NO! ¡NO QUITES EL TUTORIAL!",
                 "lines": [
                     "¡Todos sabemos que los tutoriales son aburridos!",
-                    "¡Pero este te conviene verlo!"
+                    "¡¡Pero no he hecho trabajar a la IA para",
+                    "que me genere estos sprites para que no los veas ahora!!"
                 ],
             },
             {
@@ -298,6 +295,7 @@ class JuliasRunGame:
                     "Té: Escudo temporal que te protege de golpes.",
                     "Miel: ¡Te frena un poco!",
                     "Manzana: recupera 1 vida (si tiene gusano dentro, te da 2).",
+                    "Sombrero navideño: Ho! ho! ho!",
                 ],
             },
             {
@@ -399,9 +397,13 @@ class JuliasRunGame:
                     if page_index == 5:  # 6ª página
                         rect = rect.copy()   # copiamos para no modificar el original
                         rect.y += 30         # aumenta este valor para bajarlo más
+                        
+                    # 🔽 Ajuste solo para la página 7/9 (tutorial7.png)
+                    if page_index == 6:  # 7ª página
+                        rect = rect.copy()
+                        rect.y += 80     # prueba 60/80/100 hasta que quede donde quiera
 
                     self.screen.blit(img, rect)
-
 
         # 3) PANEL "GLASS" PARA EL TEXTO (sencillo, sin cosas raras)
 
@@ -409,7 +411,7 @@ class JuliasRunGame:
         panel_margin_x = 40
         panel_margin_y = 80
         panel_width = WINDOW_WIDTH - panel_margin_x * 2
-        panel_height = 180
+        panel_height = 240
 
         panel_rect = pygame.Rect(
             panel_margin_x,
@@ -465,7 +467,6 @@ class JuliasRunGame:
         info_rect.bottomright = (WINDOW_WIDTH - 20, WINDOW_HEIGHT - 20)
         self.screen.blit(info_surf, info_rect)
 
-
     def show_loading_screen(self):
         """
         Muestra una pantalla de carga sencilla con fondo azul aciano
@@ -508,6 +509,23 @@ class JuliasRunGame:
         Es importante resetear TODOS los componentes para evitar bugs.
         """
         
+        # Reiniciar tema visual/sonoro (salimos del modo Navidad)
+        self.is_christmas_mode = False
+
+        # Fondo normal
+        try:
+            self.background = pygame.image.load(BACKGROUND_IMAGE).convert()
+        except Exception as e:
+            print("[NAVIDAD] Error recargando fondo normal:", e)
+
+        # Música normal
+        try:
+            pygame.mixer.music.load(MUSIC_BACKGROUND)
+            pygame.mixer.music.set_volume(0.2)
+            pygame.mixer.music.play(-1)
+        except Exception as e:
+            print("[NAVIDAD] Error recargando música normal:", e)
+
         # Crear jugador
         self.player = Player()
         
@@ -643,6 +661,12 @@ class JuliasRunGame:
             adjusted_powerup_rate = max(200, POWERUP_SPAWN_RATE + int(self.current_difficulty * 20))
             if self.frame_count % adjusted_powerup_rate == 0:
                 powerup_type = get_random_powerup_type()
+
+                # 🔒 El power-up "grinch" SOLO puede aparecer en modo navideño
+                if powerup_type == 'grinch' and not self.is_christmas_mode:
+                    # Si salió "grinch" pero no es Navidad, forzamos otro tipo normal
+                    powerup_type = random.choice(['vodka', 'tea', 'honey', 'apple'])
+
                 new_powerup = PowerUp(powerup_type)
                 self.powerups.append(new_powerup)
             
@@ -678,6 +702,7 @@ class JuliasRunGame:
             self.rico_timer -= 1
         if self.extra_timer > 0:
             self.extra_timer -= 1
+
         # Actualizar timers y sistemas
         self.knife_cooldown.update()
         self.powerup_effects.update(self.player)
@@ -743,7 +768,6 @@ class JuliasRunGame:
                     self.player.lives = 0
                     pygame.mixer.Sound(SOUND_HIT).play()
 
-
                     # Efectos visuales dramáticos
                     self.screen_effects.start_screen_shake()
                     impact_particles = ParticleEffect(
@@ -779,7 +803,6 @@ class JuliasRunGame:
                     self.ay_timer = 30
                     pygame.mixer.Sound(SOUND_HIT).play()
 
-                    
                     # Resetear combo al recibir daño
                     self.combo_system.add_miss()
                     
@@ -811,7 +834,6 @@ class JuliasRunGame:
 
                     # 🔊 Sonido de hit
                     pygame.mixer.Sound(SOUND_HIT).play()
-
                     
                     # ✅ IMPLEMENTADO: Crear explosión visual
                     explosion = Explosion(obstacle.rect.centerx, obstacle.rect.centery)
@@ -845,7 +867,6 @@ class JuliasRunGame:
 
                         # 🔊 Sonido de hit
                         pygame.mixer.Sound(SOUND_HIT).play()
-
                         
                         # Explosión más grande para enemigos
                         explosion = Explosion(enemy.rect.centerx, enemy.rect.centery, PURPLE)
@@ -891,6 +912,14 @@ class JuliasRunGame:
                     # 👉 NUEVO: mostrar RICO arriba y EXTRA abajo durante unos frames
                     self.rico_timer = 30   # medio segundo aprox a 60 FPS
                     self.extra_timer = 30
+                    
+                elif powerup.type == 'navidad':
+                    debug_print("🎄 Power-up de Navidad recogido", debug_mode=True)
+                    self.activate_christmas_mode()
+                    
+                elif powerup.type == 'grinch':
+                    debug_print("💚 Power-up GRINCH recogido: adiós Navidad", debug_mode=True)
+                    self.deactivate_christmas_mode()
                 
                 # ✅ Efectos visuales para power-ups
                 sparkle_particles = ParticleEffect(
@@ -902,6 +931,74 @@ class JuliasRunGame:
                 debug_print(f"Power-up recogido: +{points} puntos", debug_mode=self.debug_mode)
         
         return True  # Jugador sigue vivo
+
+    def activate_christmas_mode(self):
+        """
+        Activa el modo Navidad:
+        - Cambia fondo a nieve
+        - Cambia sprite de Julia
+        - Cambia música de fondo
+        """
+        if self.is_christmas_mode:
+            return  # ya está activo
+
+        self.is_christmas_mode = True
+        print("🎄 MODO NAVIDAD ACTIVADO")
+
+        # Fondo nevado
+        try:
+            self.background = pygame.image.load(BACKGROUND_IMAGE_SNOW).convert()
+        except Exception as e:
+            print("[NAVIDAD] Error cargando fondo nevado:", e)
+
+        # Sprite navideño de Julia
+        try:
+            if hasattr(self.player, "set_sprite"):
+                self.player.set_sprite(SPRITE_JULIA_SNOW)
+        except Exception as e:
+            print("[NAVIDAD] Error cambiando sprite de Julia:", e)
+
+        # Música navideña
+        try:
+            pygame.mixer.music.load(MUSIC_BACKGROUND_CHRISTMAS)
+            pygame.mixer.music.set_volume(0.2)
+            pygame.mixer.music.play(-1)
+        except Exception as e:
+            print("[NAVIDAD] Error cambiando música navideña:", e)
+
+    def deactivate_christmas_mode(self):
+        """
+        Desactiva el modo Navidad:
+        - Vuelve al fondo normal
+        - Vuelve al sprite normal de Julia
+        - Vuelve a la música normal
+        """
+        if not self.is_christmas_mode:
+            return  # Ya estamos en modo normal
+
+        self.is_christmas_mode = False
+        print("🎁 El Grinch ha robado la Navidad. ¡Modo normal restaurado!")
+
+        # Fondo normal
+        try:
+            self.background = pygame.image.load(BACKGROUND_IMAGE).convert()
+        except Exception as e:
+            print("[NAVIDAD] Error restaurando fondo normal:", e)
+
+        # Sprite normal de Julia
+        try:
+            if hasattr(self.player, "set_sprite"):
+                self.player.set_sprite(SPRITE_JULIA)
+        except Exception as e:
+            print("[NAVIDAD] Error restaurando sprite normal de Julia:", e)
+
+        # Música normal
+        try:
+            pygame.mixer.music.load(MUSIC_BACKGROUND)
+            pygame.mixer.music.set_volume(0.2)
+            pygame.mixer.music.play(-1)
+        except Exception as e:
+            print("[NAVIDAD] Error restaurando música normal:", e)
 
     def handle_game_over(self):
         """
@@ -978,7 +1075,6 @@ class JuliasRunGame:
         # Actualizar la pantalla (hacer visible lo dibujado)
         pygame.display.flip()
         
-    
     def draw_game_content(self, surface):
         """
         ✅ IMPLEMENTADO: Dibuja el contenido del juego en la superficie especificada.
@@ -1001,6 +1097,7 @@ class JuliasRunGame:
         
         # Dibujar todas las entidades
         self.player.draw(surface)
+
         # Dibujar AY PNG encima del player
         try:
             if (
@@ -1055,7 +1152,6 @@ class JuliasRunGame:
         except Exception as e:
             print("EXTRA EXCEPTION:", e)
 
-        
         for obstacle in self.obstacles:
             obstacle.draw(surface)
         
@@ -1084,6 +1180,7 @@ class JuliasRunGame:
             
         # Dibujar HUD (Heads-Up Display)
         self.draw_hud(surface)
+
     def run_tutorial(self):
         """
         Muestra un pequeño tutorial interactivo ANTES de entrar al menú/juego.
@@ -1094,7 +1191,7 @@ class JuliasRunGame:
             {
                 "title": "¡Bienvenido a Julia's Run!",
                 "lines": [
-                    "Soy Calero, el loco que está detrás de este juego,",
+                    "Soy Iván Calero, el loco que está detrás de este juego,",
                     "y a continuación te diré dónde te has metido..."
                 ],
             },
@@ -1102,7 +1199,9 @@ class JuliasRunGame:
                 "title": "¡Y NO! ¡NO QUITES EL TUTORIAL!",
                 "lines": [
                     "¡Todos sabemos que los tutoriales son aburridos!",
-                    "¡Pero este te conviene verlo!"
+                    "¡¡Pero este lo vas a ver!!",
+                    "¡No he hecho trabajar a la IA para que me haga estos sprites",
+                    "y que ahora no los veas!"
                 ],
             },
             {
@@ -1142,6 +1241,8 @@ class JuliasRunGame:
                     "Té: Escudo temporal que te protege de golpes.",
                     "Miel: ¡Te frena un poco!",
                     "Manzana: recupera 1 vida (si tiene gusano dentro, te da 2).",
+                    "¡Sombrero navideño!: Ho! Ho! Ho!",
+                    "¡Grinch... y adios Navidad!"
                 ],
             },
             {
@@ -1158,7 +1259,8 @@ class JuliasRunGame:
                 "lines": [
                     "Ah, ¿consejos sobre el juego?",
                     "Que estábamos muy a gusto con HTML y CSS...",
-                    "Qué tiempos aquellos... ¡En fin! ¡A MATAR CACHOPOS!",
+                    "Qué tiempos aquellos...",
+                    "¡En fin! ¡A MATAR CACHOPOS!",
                 ],
             },
         ]
@@ -1207,10 +1309,6 @@ class JuliasRunGame:
 
             pygame.display.flip()
             self.clock.tick(FPS)
-            
-            
-    
-
     
     def draw_hud(self, surface):
         """
@@ -1261,33 +1359,14 @@ class JuliasRunGame:
             lives_text = self.font_hud_small.render("LIVES", True, self.hud_text_color)
             surface.blit(lives_text, (lives_x, lives_y))
 
-        # --- PANEL DE ESCUDO A LA DERECHA ---
-        if self.player.has_shield:
-            panel_w = 150
-            panel_h = 32
-            shield_panel_x = WINDOW_WIDTH - panel_w - 10
-            shield_panel_y = padding_y + 4
-
-            panel_rect = pygame.Rect(shield_panel_x, shield_panel_y, panel_w, panel_h)
-            pygame.draw.rect(surface, (30, 60, 90), panel_rect)  # fondo oscuro azulado
-            pygame.draw.rect(surface, self.hud_border_color, panel_rect, 2)
-
-            text_offset_x = 6
-            if self.shield_icon:
-                surface.blit(self.shield_icon, (shield_panel_x + 6, shield_panel_y + 8))
-                text_offset_x = 28
-
-            shield_text = self.font_hud_small.render("SHIELD ACTIVE", True, TEA_COLOR)
-            surface.blit(shield_text, (shield_panel_x + text_offset_x, shield_panel_y + 8))
-
         # --- BARRA DE COOLDOWN DEL CUCHILLO ---
-        self.knife_cooldown.draw_cooldown_bar(surface)
+        # self.knife_cooldown.draw_cooldown_bar(surface)
         
         # --- EFECTOS ACTIVOS (vodka, té, etc.) ---
         # self.powerup_effects.draw_active_effects(surface, self.state_manager.font_small)
 
         # --- SISTEMA DE COMBOS ---
-        self.combo_system.draw_combo_display(surface, self.state_manager.font_small)
+        # (Combo oculto en HUD; solo afecta a la puntuación internamente)
 
         # --- INDICADOR DE DIFICULTAD ---
         if self.current_difficulty > 1.0:
@@ -1363,7 +1442,7 @@ class JuliasRunGame:
         print("Usa las flechas para mover, ESPACIO para lanzar cuchillos.")
         print("¡Buena suerte!")
         
-        #Tutorial
+        # Tutorial
         self.run_tutorial()
         if not self.running:
             # Si el jugador cerró la ventana durante el tutorial,
@@ -1433,7 +1512,6 @@ def main():
         traceback.print_exc()
         pygame.quit()
         sys.exit()
-
     
     finally:
         # Asegurar que pygame se cierre correctamente
