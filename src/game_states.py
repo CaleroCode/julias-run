@@ -252,8 +252,8 @@ class PlayingState:
             self.snd_powerup = pygame.mixer.Sound(SOUND_POWERUP)
 
             self.snd_throw.set_volume(0.3)
-            self.snd_hit.set_volume(0.2)
-            self.snd_powerup.set_volume(0.2)
+            self.snd_hit.set_volume(0.05)
+            self.snd_powerup.set_volume(0.04)
         except Exception as e:
             print(f"[PlayingState] Error cargando sonidos: {e}")
 

@@ -1,0 +1,1 @@
+quisiera añadir un powerup, que sea un sombrero de navidad (assets/sprites/navidad.png) y que al recogerlo, cambie el fondo (assets/sprites/background_snow.png), cambie el sprites de player (assets/sprites/julia_snow.png) y que cambie el sonido de fondo (assets/sounds/navidad.wav)

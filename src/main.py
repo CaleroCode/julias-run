@@ -78,7 +78,83 @@ class JuliasRunGame:
         
         # Fondo scroll
         self.background = pygame.image.load("assets/sprites/background.png").convert()
+        
         self.background_y = 0
+    
+
+        # === TUTORIAL: fondo + ilustraciones por página ===
+        self.tutorial_bg = None
+        self.tutorial_sprites = []  # lista de (image, rect) por página
+
+        # Fondo del tutorial
+        try:
+            bg = pygame.image.load("assets/sprites/tutorial/fondo.png").convert()
+            self.tutorial_bg = pygame.transform.smoothscale(bg, (WINDOW_WIDTH, WINDOW_HEIGHT))
+            print("[TUTORIAL] Fondo cargado correctamente.")
+        except Exception as e:
+            print("[TUTORIAL] Error cargando assets/sprites/tutorial/fondo.png:", e)
+
+               # Ilustración de la primera página (abajo izquierda)
+        try:
+            img = pygame.image.load("assets/sprites/tutorial/tutorial1.png").convert_alpha()
+
+            target_height = 450
+            scale_factor = target_height / img.get_height()
+            target_width = int(img.get_width() * scale_factor)
+            img = pygame.transform.smoothscale(img, (target_width, target_height))
+
+            self.tutorial1_image = img
+            self.tutorial1_rect = self.tutorial1_image.get_rect()
+            self.tutorial1_rect.bottomleft = (20, WINDOW_HEIGHT)
+            print("[TUTORIAL] tutorial1.png cargado y escalado correctamente.")
+        except Exception as e:
+            print("[TUTORIAL] Error cargando assets/sprites/tutorial/tutorial1.png:", e)
+
+        # Ilustración de la segunda página (centrado abajo)
+        try:
+            img2 = pygame.image.load("assets/sprites/tutorial/tutorial2.png").convert_alpha()
+
+            target_height2 = 600
+            scale_factor2 = target_height2 / img2.get_height()
+            target_width2 = int(img2.get_width() * scale_factor2)
+            img2 = pygame.transform.smoothscale(img2, (target_width2, target_height2))
+
+            self.tutorial2_image = img2
+            self.tutorial2_rect = self.tutorial2_image.get_rect()
+            self.tutorial2_rect.midbottom = (WINDOW_WIDTH // 2, WINDOW_HEIGHT)
+            self.tutorial2_rect.y += 80  # tu ajuste actual
+            print("[TUTORIAL] tutorial2.png cargado y escalado correctamente.")
+        except Exception as e:
+            print("[TUTORIAL] Error cargando assets/sprites/tutorial/tutorial2.png:", e)
+            
+        # Ilustraciones de la página 3 en adelante (todas como tutorial1)
+        self.tutorial_extra_sprites = []  # tutorial3, tutorial4, ...
+
+        # Si tienes más o menos, cambia el rango (3, 10)
+        for i in range(3, 10):  # 3,4,5,6,7,8,9
+            filename = f"assets/sprites/tutorial/tutorial{i}.png"
+            try:
+                img = pygame.image.load(filename).convert_alpha()
+
+                # Mismo tamaño que tutorial1 (450px de alto)
+                target_height = 450
+                scale_factor = target_height / img.get_height()
+                target_width = int(img.get_width() * scale_factor)
+                img = pygame.transform.smoothscale(img, (target_width, target_height))
+
+                rect = img.get_rect()
+                rect.bottomleft = (20, WINDOW_HEIGHT)  # misma posición que tutorial1
+
+                self.tutorial_extra_sprites.append((img, rect))
+                print(f"[TUTORIAL] {filename} cargado y escalado correctamente.")
+            except Exception as e:
+                print(f"[TUTORIAL] Error cargando {filename}:", e)
+                # Para no desalinear índices, metemos un hueco vacío
+                self.tutorial_extra_sprites.append((None, None))
+
+
+
+
         
         # Control de tiempo (FPS)
         self.clock = pygame.time.Clock()
@@ -163,6 +239,232 @@ class JuliasRunGame:
         
         # Inicializar componentes del juego
         self.reset_game()
+
+    def run_tutorial(self):
+        """
+        Muestra un tutorial antes de entrar al menú/juego.
+        Avanzas con ESPACIO / ENTER / → y puedes saltarlo con ESC.
+        """
+
+        tutorial_steps = [
+            {
+                "title": "¡Bienvenido a Julia's Run!",
+                "lines": [
+                    "Soy Calero, el loco que está detrás de este juego,",
+                    "y a continuación te diré dónde te has metido..."
+                ],
+            },
+            {
+                "title": "¡Y NO! ¡NO QUITES EL TUTORIAL!",
+                "lines": [
+                    "¡Todos sabemos que los tutoriales son aburridos!",
+                    "¡Pero este te conviene verlo!"
+                ],
+            },
+            {
+                "title": "Ejem, perdón...",
+                "lines": [
+                    "Vas a manejar a nuestra querida ruski.",
+                    "Tu objetivo es sobrevivir esquivando cachopos voladores y lanzar cuchillos.",
+                ],
+            },
+            {
+                "title": "Madre mía...",
+                "lines": [
+                    "En serio... ¿Quién se inventa el lore de este bootcamp?",
+                ],
+            },
+            {
+                "title": "En fin, vayamos al tema: ¡Controles básicos!",
+                "lines": [
+                    "FLECHAS: Pues... te mueves...",
+                    "ESPACIO: Lanzas cuchillos como buena rusa.",
+                    "P: Pausar el juego (no vale para nada pero eh, estar está).",
+                ],
+            },
+            {
+                "title": "Peligros y enemigos",
+                "lines": [
+                    "Hay unos cachopos voladores que intentan matarte",
+                    "(¿Por qué? Pues no sé, porque sí).",
+                    "Además, de vez en cuando aparecerá un guapo Calero volador.",
+                    "Si te toco ¡Te mato al instante! (pero en el fondo, soy majo).",
+                ],
+            },
+            {
+                "title": "Power-ups",
+                "lines": [
+                    "Vodka: Turbo a tope.",
+                    "Té: Escudo temporal que te protege de golpes.",
+                    "Miel: ¡Te frena un poco!",
+                    "Manzana: recupera 1 vida (si tiene gusano dentro, te da 2).",
+                ],
+            },
+            {
+                "title": "Consejos",
+                "lines": [
+                    "1º La rama DEV no se borra.",
+                    "2º Si quieres cursos, Udemy es tu amigo.",
+                    "3º Si JavaScript quieres dominar, vodka y miel para desayunar.",
+                    "4º Que Chipi dominará el mundo.",
+                ],
+            },
+            {
+                "title": "Ups!",
+                "lines": [
+                    "Ah, ¿consejos sobre el juego?",
+                    "Que estábamos muy a gusto con HTML y CSS...",
+                    "Qué tiempos aquellos... ¡En fin! ¡A MATAR CACHOPOS!",
+                ],
+            },
+        ]
+
+        current_step = 0
+
+        # Fuentes para el tutorial
+        try:
+            title_font = pygame.font.Font("assets/fonts/pixel.ttf", 40)
+            body_font = pygame.font.Font("assets/fonts/pixel.ttf", 20)
+            hint_font = pygame.font.Font("assets/fonts/pixel.ttf", 16)
+        except Exception:
+            title_font = pygame.font.SysFont(None, 48)
+            body_font = pygame.font.SysFont(None, 28)
+            hint_font = pygame.font.SysFont(None, 22)
+
+        # Bucle del tutorial
+        while self.running and current_step < len(tutorial_steps):
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
+                    return
+
+                if event.type == pygame.KEYDOWN:
+                    # Siguiente página
+                    if event.key in (pygame.K_SPACE, pygame.K_RETURN, pygame.K_RIGHT):
+                        current_step += 1
+                    # Saltar todo el tutorial
+                    elif event.key in (pygame.K_ESCAPE, pygame.K_BACKSPACE):
+                        return
+
+            if not self.running:
+                return
+
+            if current_step >= len(tutorial_steps):
+                break
+
+            step = tutorial_steps[current_step]
+            self.draw_tutorial_screen(
+                step,
+                current_step,             # page_index
+                len(tutorial_steps),      # total_pages
+                title_font,
+                body_font,
+                hint_font
+            )
+
+            pygame.display.flip()
+            self.clock.tick(FPS)
+
+    def draw_tutorial_screen(self, step, page_index, total_pages, title_font, body_font, hint_font):
+        """
+        Dibuja una pantalla del tutorial con:
+        - Fondo del tutorial
+        - Imagen según página
+        - Texto sobre un panel tipo glass en el centro
+        """
+
+        # 1) Fondo del tutorial
+        if self.tutorial_bg is not None:
+            self.screen.blit(self.tutorial_bg, (0, 0))
+        else:
+            self.screen.fill((10, 8, 25))
+
+        # 2) Imagen según página (tu lógica tal cual)
+        if page_index == 0:
+            # Página 1 → tutorial1.png (abajo izquierda)
+            if hasattr(self, "tutorial1_image") and self.tutorial1_image is not None:
+                self.screen.blit(self.tutorial1_image, self.tutorial1_rect)
+
+        elif page_index == 1:
+            # Página 2 → tutorial2.png (centrado abajo)
+            if hasattr(self, "tutorial2_image") and self.tutorial2_image is not None:
+                self.screen.blit(self.tutorial2_image, self.tutorial2_rect)
+
+        else:
+            idx = page_index - 2  # página 3 → índice 1, etc.
+            if hasattr(self, "tutorial_extra_sprites") and 0 <= idx < len(self.tutorial_extra_sprites):
+                img, rect = self.tutorial_extra_sprites[idx]
+                if img is not None and rect is not None:
+                    # 🔽 Ajuste solo para la página 6/9 (tutorial6.png)
+                    if page_index == 5:  # 6ª página
+                        rect = rect.copy()   # copiamos para no modificar el original
+                        rect.y += 30         # aumenta este valor para bajarlo más
+
+                    self.screen.blit(img, rect)
+
+
+        # 3) PANEL "GLASS" PARA EL TEXTO (sencillo, sin cosas raras)
+
+        # Rectángulo donde va el panel de cristal
+        panel_margin_x = 40
+        panel_margin_y = 80
+        panel_width = WINDOW_WIDTH - panel_margin_x * 2
+        panel_height = 180
+
+        panel_rect = pygame.Rect(
+            panel_margin_x,
+            panel_margin_y,
+            panel_width,
+            panel_height
+        )
+
+        # Superficie con alpha (para poder usar transparencias)
+        panel_surf = pygame.Surface((panel_rect.width, panel_rect.height), pygame.SRCALPHA)
+
+        # Fondo semi-transparente tipo cristal
+        panel_bg_color = (20, 20, 40, 170)   # último valor = alpha
+        pygame.draw.rect(
+            panel_surf,
+            panel_bg_color,
+            pygame.Rect(0, 0, panel_rect.width, panel_rect.height)
+        )
+
+        # Borde claro (rollo glass)
+        border_color = (255, 255, 255, 200)
+        pygame.draw.rect(
+            panel_surf,
+            border_color,
+            pygame.Rect(0, 0, panel_rect.width, panel_rect.height),
+            2  # grosor
+        )
+
+        # Pegar el panel en la pantalla principal
+        self.screen.blit(panel_surf, panel_rect.topleft)
+
+        # 4) TEXTO DENTRO DEL PANEL
+
+        # Título
+        title_surf = title_font.render(step["title"], True, (255, 255, 255))
+        title_rect = title_surf.get_rect(
+            center=(panel_rect.centerx, panel_rect.top + 40)
+        )
+        self.screen.blit(title_surf, title_rect)
+
+        # Líneas del cuerpo
+        y = title_rect.bottom + 20
+        for line in step["lines"]:
+            text_surf = body_font.render(line, True, (230, 230, 230))
+            text_rect = text_surf.get_rect(center=(panel_rect.centerx, y))
+            self.screen.blit(text_surf, text_rect)
+            y += body_font.get_linesize() + 4
+
+        # 5) Indicaciones + progreso abajo a la derecha (fuera del panel)
+        info_text = f"{page_index + 1}/{total_pages}  |  ESPACIO/ENTER/→: siguiente  |  ESC: saltar"
+        info_surf = hint_font.render(info_text, True, (200, 200, 200))
+        info_rect = info_surf.get_rect()
+        info_rect.bottomright = (WINDOW_WIDTH - 20, WINDOW_HEIGHT - 20)
+        self.screen.blit(info_surf, info_rect)
+
 
     def show_loading_screen(self):
         """
@@ -782,6 +1084,132 @@ class JuliasRunGame:
             
         # Dibujar HUD (Heads-Up Display)
         self.draw_hud(surface)
+    def run_tutorial(self):
+        """
+        Muestra un pequeño tutorial interactivo ANTES de entrar al menú/juego.
+        El jugador avanza con ESPACIO/ENTER y puede saltarlo con ESC.
+        """
+
+        tutorial_steps = [
+            {
+                "title": "¡Bienvenido a Julia's Run!",
+                "lines": [
+                    "Soy Calero, el loco que está detrás de este juego,",
+                    "y a continuación te diré dónde te has metido..."
+                ],
+            },
+            {
+                "title": "¡Y NO! ¡NO QUITES EL TUTORIAL!",
+                "lines": [
+                    "¡Todos sabemos que los tutoriales son aburridos!",
+                    "¡Pero este te conviene verlo!"
+                ],
+            },
+            {
+                "title": "Ejem, perdón...",
+                "lines": [
+                    "Vas a manejar a nuestra querida ruski.",
+                    "Tu objetivo es sobrevivir esquivando cachopos voladores y lanzar cuchillos.",
+                ],
+            },
+            {
+                "title": "Madre mía...",
+                "lines": [
+                    "En serio... ¿Quién se inventa el lore de este bootcamp?",
+                ],
+            },
+            {
+                "title": "En fin, vayamos al tema: ¡Controles básicos!",
+                "lines": [
+                    "FLECHAS: Pues... te mueves...",
+                    "ESPACIO: Lanzas cuchillos como buena rusa.",
+                    "P: Pausar el juego (no vale para nada pero eh, estar está).",
+                ],
+            },
+            {
+                "title": "Peligros y enemigos",
+                "lines": [
+                    "Hay unos cachopos voladores que intentan matarte",
+                    "(¿Por qué? Pues no sé, porque sí).",
+                    "Además, de vez en cuando aparecerá un guapo Calero volador.",
+                    "Si te toco ¡Te mato al instante! (pero en el fondo, soy majo).",
+                ],
+            },
+            {
+                "title": "Power-ups",
+                "lines": [
+                    "Vodka: Turbo a tope.",
+                    "Té: Escudo temporal que te protege de golpes.",
+                    "Miel: ¡Te frena un poco!",
+                    "Manzana: recupera 1 vida (si tiene gusano dentro, te da 2).",
+                ],
+            },
+            {
+                "title": "Consejos",
+                "lines": [
+                    "1º La rama DEV no se borra.",
+                    "2º Si quieres cursos, Udemy es tu amigo.",
+                    "3º Si JavaScript quieres dominar, vodka y miel para desayunar.",
+                    "4º Chipi dominará el mundo.",
+                ],
+            },
+            {
+                "title": "Ups!",
+                "lines": [
+                    "Ah, ¿consejos sobre el juego?",
+                    "Que estábamos muy a gusto con HTML y CSS...",
+                    "Qué tiempos aquellos... ¡En fin! ¡A MATAR CACHOPOS!",
+                ],
+            },
+        ]
+
+        current_step = 0
+
+        # Fuentes específicas para el tutorial (pixel si está, si no por defecto)
+        try:
+            title_font = pygame.font.Font("assets/fonts/pixel.ttf", 40)
+            body_font = pygame.font.Font("assets/fonts/pixel.ttf", 20)
+            hint_font = pygame.font.Font("assets/fonts/pixel.ttf", 16)
+        except Exception:
+            title_font = pygame.font.SysFont(None, 48)
+            body_font = pygame.font.SysFont(None, 28)
+            hint_font = pygame.font.SysFont(None, 22)
+
+        while self.running and current_step < len(tutorial_steps):
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
+                    return
+
+                elif event.type == pygame.KEYDOWN:
+                    # Siguiente pantalla
+                    if event.key in (pygame.K_SPACE, pygame.K_RETURN, pygame.K_RIGHT):
+                        current_step += 1
+                    # Saltar tutorial entero
+                    elif event.key in (pygame.K_ESCAPE, pygame.K_BACKSPACE):
+                        return
+
+            if not self.running:
+                break
+
+            if current_step >= len(tutorial_steps):
+                break
+
+            step = tutorial_steps[current_step]
+            self.draw_tutorial_screen(
+                step,
+                current_step,              # page_index
+                len(tutorial_steps),       # total_pages
+                title_font,
+                body_font,
+                hint_font
+            )
+
+            pygame.display.flip()
+            self.clock.tick(FPS)
+            
+            
+    
 
     
     def draw_hud(self, surface):
@@ -934,6 +1362,13 @@ class JuliasRunGame:
         print("¡Iniciando Julia's Run!")
         print("Usa las flechas para mover, ESPACIO para lanzar cuchillos.")
         print("¡Buena suerte!")
+        
+        #Tutorial
+        self.run_tutorial()
+        if not self.running:
+            # Si el jugador cerró la ventana durante el tutorial,
+            # salimos sin entrar al game loop normal.
+            return
         
         # Game loop principal
         while self.running:
