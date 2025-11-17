@@ -69,6 +69,13 @@ class JuliasRunGame:
         # Inicializar Pygame
         pygame.init()
 
+        # Canal específico para la voz del tutorial
+        try:
+            self.tutorial_voice_channel = pygame.mixer.Channel(1)
+        except Exception as e:
+            print("[TUTORIAL-VOZ] No se pudo crear el canal de voz:", e)
+            self.tutorial_voice_channel = None
+
         # Crear la ventana del juego
         self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
         pygame.display.set_caption("Julia's Run - ¡Esquiva y Sobrevive!")
@@ -616,7 +623,7 @@ class JuliasRunGame:
                         self.player.score += points
                         self.combo_system.add_hit()
 
-                        pygame.mixer.Sound(SOUND_HIT).play()
+                        self.playing_state.snd_hit.play()
                         self.explosions.append(
                             Explosion(obstacle.rect.centerx, obstacle.rect.centery, SHURIKEN_COLOR)
                         )
@@ -641,7 +648,7 @@ class JuliasRunGame:
                         self.player.score += points
                         self.combo_system.add_hit()
 
-                        pygame.mixer.Sound(SOUND_HIT).play()
+                        self.playing_state.snd_hit.play()
                         self.explosions.append(
                             Explosion(enemy.rect.centerx, enemy.rect.centery, PURPLE)
                         )
@@ -669,7 +676,7 @@ class JuliasRunGame:
                         self.obstacles.remove(threat)
 
                     self.player.lives = 0
-                    pygame.mixer.Sound(SOUND_HIT).play()
+                    self.playing_state.snd_hit.play()
 
                     self.screen_effects.start_screen_shake()
                     impact_particles = ParticleEffect(
@@ -688,12 +695,12 @@ class JuliasRunGame:
                         self.enemies.remove(threat)
 
                     if not self.player.take_damage():
-                        pygame.mixer.Sound(SOUND_HIT).play()
+                        self.playing_state.snd_hit.play()
                         self.ay_timer = 30
                         return False
 
                     self.ay_timer = 30
-                    pygame.mixer.Sound(SOUND_HIT).play()
+                    self.playing_state.snd_hit.play()
                     self.combo_system.add_miss()
                     self.screen_effects.start_screen_shake()
 
@@ -717,7 +724,7 @@ class JuliasRunGame:
                     self.player.score += points
                     self.combo_system.add_hit()
 
-                    pygame.mixer.Sound(SOUND_HIT).play()
+                    self.playing_state.snd_hit.play()
 
                     explosion = Explosion(obstacle.rect.centerx, obstacle.rect.centery)
                     self.explosions.append(explosion)
@@ -748,7 +755,7 @@ class JuliasRunGame:
                         self.player.score += points
                         self.combo_system.add_hit()
 
-                        pygame.mixer.Sound(SOUND_HIT).play()
+                        self.playing_state.snd_hit.play()
 
                         explosion = Explosion(enemy.rect.centerx, enemy.rect.centery, PURPLE)
                         self.explosions.append(explosion)
@@ -1127,7 +1134,20 @@ class JuliasRunGame:
             },
         ]
 
+        # 🔊 Cargar voces del tutorial (assets/sounds/tutorial/tutorial1.wav ... tutorial9.wav)
+        tutorial_voices = []
+        for i in range(1, len(tutorial_steps) + 1):  # 1..9
+            filename = f"assets/sounds/tutorial/tutorial{i}.wav"
+            try:
+                snd = pygame.mixer.Sound(filename)
+                tutorial_voices.append(snd)
+                print(f"[TUTORIAL-VOZ] Cargado {filename}")
+            except Exception as e:
+                print(f"[TUTORIAL-VOZ] No se pudo cargar {filename}: {e}")
+                tutorial_voices.append(None)
+
         current_step = 0
+        last_spoken_step = -1  # para saber cuándo hemos cambiado de página
 
         try:
             title_font = pygame.font.Font("assets/fonts/pixel.ttf", 40)
@@ -1157,6 +1177,25 @@ class JuliasRunGame:
                 break
 
             step = tutorial_steps[current_step]
+
+            # 🔊 Si hemos cambiado de página, reproducir la voz
+            if current_step != last_spoken_step:
+                last_spoken_step = current_step
+                voice = tutorial_voices[current_step]
+
+                if voice is not None:
+                    try:
+                        if self.tutorial_voice_channel is not None:
+                            self.tutorial_voice_channel.stop()
+                            # volumen opcional (0.0 a 1.0)
+                            self.tutorial_voice_channel.set_volume(1.0)
+                            self.tutorial_voice_channel.play(voice)
+                        else:
+                            # Fallback si no hay canal dedicado
+                            voice.play()
+                    except Exception as e:
+                        print("[TUTORIAL-VOZ] Error al reproducir voz:", e)
+
             self.draw_tutorial_screen(
                 step,
                 current_step,
@@ -1182,7 +1221,7 @@ class JuliasRunGame:
         padding_y = 8
 
         # SCORE arcade
-        score_str = f"SCORE {self.player.score:06d}"
+        score_str = f"PUNTUACIÓN CACHOPERA {self.player.score:06d}"
         score_text = self.font_hud_medium.render(score_str, True, self.hud_text_color)
         surface.blit(score_text, (padding_x, padding_y))
 
@@ -1195,7 +1234,7 @@ class JuliasRunGame:
                 icon_x = lives_x + i * (self.heart_icon.get_width() + 2)
                 surface.blit(self.heart_icon, (icon_x, lives_y))
 
-            lives_label = self.font_hud_small.render("LIVES", True, self.hud_text_color)
+            lives_label = self.font_hud_small.render("VIDAS", True, self.hud_text_color)
             surface.blit(
                 lives_label,
                 (
